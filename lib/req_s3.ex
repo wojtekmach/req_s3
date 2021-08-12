@@ -5,7 +5,7 @@ defmodule ReqS3 do
     headers = request.headers
 
     %{request | uri: uri, headers: headers}
-    |> Req.append_response_steps([&ReqS3.decode/2])
+    |> Req.append_response_steps([&decode/2])
   end
 
   def run(request, _opts) do
@@ -18,8 +18,7 @@ defmodule ReqS3 do
     Record.defrecordp(name, fields)
   end
 
-  @doc false
-  def decode(request, response) do
+  defp decode(request, response) do
     if request.uri.path in [nil, "/"] do
       opts = [space: :normalize, comments: false, encoding: :latin1]
       {doc, ''} = :xmerl_scan.string(String.to_charlist(response.body), opts)
