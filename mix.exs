@@ -19,8 +19,7 @@ defmodule ReqS3.MixProject do
 
   defp deps do
     [
-      {:req, github: "wojtekmach/req"}
-      # {:req, path: "../req"}
+      {:req, "~> 0.2.0"}
     ]
   end
 end
