@@ -19,7 +19,8 @@ defmodule ReqS3.MixProject do
 
   defp deps do
     [
-      {:req, "~> 0.1.0", github: "wojtekmach/req", branch: "wm-plugins"}
+      {:req, github: "wojtekmach/req"}
+      # {:req, path: "../req"}
     ]
   end
 end
