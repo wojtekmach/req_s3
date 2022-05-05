@@ -1,15 +1,10 @@
 defmodule ReqS3Test do
-  use ExUnit.Case
+  use ExUnit.Case, async: true
   doctest ReqS3
 
   test "list objects" do
-    body = Req.get!("s3://ossci-datasets/", steps: [ReqS3]).body
+    req = Req.new() |> ReqS3.run()
+    body = Req.get!(req, url: "s3://ossci-datasets").body
     assert "mnist/train-images-idx3-ubyte.gz" in body
-  end
-
-  test "get object" do
-    body = Req.get!("s3://ossci-datasets/mnist/train-images-idx3-ubyte.gz", steps: [ReqS3]).body
-    <<_::32, n_images::32, n_rows::32, n_cols::32, _body::binary>> = body
-    assert {n_images, n_rows, n_cols} == {60_000, 28, 28}
   end
 end

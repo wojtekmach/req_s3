@@ -1,15 +1,53 @@
 defmodule ReqS3 do
-  def run(request) when request.url.scheme == "s3" do
-    host = "#{request.url.host}.s3.amazonaws.com"
-    url = %{request.url | scheme: "https", host: host, authority: host, port: 443}
-    headers = request.headers
+  @moduledoc """
+  `Req` plugin for [Amazon S3](https://aws.amazon.com/s3).
 
-    %{request | url: url, headers: headers}
-    |> Req.append_response_steps([&decode/1])
+  ReqS3 handles a custom `s3://` url scheme that supports two endpoints:
+
+  ```
+  s3://<bucket>        # list bucket items
+  s3://<bucket>/<item> # get item content
+  ```
+  """
+
+  @doc """
+  Runs the plugin.
+
+  ## Examples
+
+      iex> req = Req.new() |> ReqS3.run()
+      iex> Req.get!(req, url: "s3://ossci-datasets").body
+      [
+        "mnist/",
+        "mnist/t10k-images-idx3-ubyte.gz",
+        "mnist/t10k-labels-idx1-ubyte.gz",
+        "mnist/train-images-idx3-ubyte.gz",
+        "mnist/train-labels-idx1-ubyte.gz"
+      ]
+
+      iex> req = Req.new() |> ReqS3.run()
+      iex> body = Req.get!(req, url: "s3://ossci-datasets/mnist/train-images-idx3-ubyte.gz").body
+      iex> <<_::32, n_images::32, n_rows::32, n_cols::32, _body::binary>> = body
+      iex> {n_images, n_rows, n_cols}
+      {60_000, 28, 28}
+  """
+  def run(request) do
+    Req.Request.append_request_steps(request,
+      req_s3_parse_url: &s3_parse_url/1
+    )
   end
 
-  def run(request) do
-    request
+  defp s3_parse_url(request) do
+    if request.url.scheme == "s3" do
+      host = "#{request.url.host}.s3.amazonaws.com"
+      url = %{request.url | scheme: "https", host: host, authority: host, port: 443}
+
+      request
+      |> Map.replace!(:url, url)
+      |> Req.Request.append_response_steps(req_s3_decode_body: &decode_body/1)
+    else
+      request
+    end
   end
 
   require Record
@@ -18,7 +56,7 @@ defmodule ReqS3 do
     Record.defrecordp(name, fields)
   end
 
-  defp decode({request, response}) do
+  defp decode_body({request, response}) do
     if request.url.path in [nil, "/"] do
       opts = [space: :normalize, comments: false, encoding: :latin1]
       {doc, ''} = :xmerl_scan.string(String.to_charlist(response.body), opts)
@@ -29,7 +67,7 @@ defmodule ReqS3 do
           List.to_string(value)
         end
 
-      {request, put_in(response.body, body)}
+      {request, %{response | body: body}}
     else
       {request, response}
     end
