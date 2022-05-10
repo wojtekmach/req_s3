@@ -16,7 +16,8 @@ Mix.install([
   {:req, github: "wojtekmach/req"},
   {:req_s3, github: "wojtekmach/req_s3"}
 ])
-req = Req.new() |> ReqS3.run()
+
+req = Req.new() |> ReqS3.attach()
 Req.get!(req, url: "s3://ossci-datasets").body
 #=>
 # [

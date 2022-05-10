@@ -15,7 +15,7 @@ defmodule ReqS3 do
 
   ## Examples
 
-      iex> req = Req.new() |> ReqS3.run()
+      iex> req = Req.new() |> ReqS3.attach()
       iex> Req.get!(req, url: "s3://ossci-datasets").body
       [
         "mnist/",
@@ -25,13 +25,13 @@ defmodule ReqS3 do
         "mnist/train-labels-idx1-ubyte.gz"
       ]
 
-      iex> req = Req.new() |> ReqS3.run()
+      iex> req = Req.new() |> ReqS3.attach()
       iex> body = Req.get!(req, url: "s3://ossci-datasets/mnist/train-images-idx3-ubyte.gz").body
       iex> <<_::32, n_images::32, n_rows::32, n_cols::32, _body::binary>> = body
       iex> {n_images, n_rows, n_cols}
       {60_000, 28, 28}
   """
-  def run(request) do
+  def attach(request) do
     Req.Request.append_request_steps(request,
       req_s3_parse_url: &s3_parse_url/1
     )
