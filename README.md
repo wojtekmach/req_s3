@@ -4,7 +4,7 @@
 
 ReqS3 handles a custom `s3://` url scheme that supports two endpoints:
 
-```
+```text
 s3://<bucket>        # list bucket items
 s3://<bucket>/<item> # get item content
 ```
@@ -25,7 +25,7 @@ Req.get!(req, url: "s3://ossci-datasets").body
 #   "mnist/t10k-images-idx3-ubyte.gz",
 #   "mnist/t10k-labels-idx1-ubyte.gz",
 #   "mnist/train-images-idx3-ubyte.gz",
-#   "mnist/train-labels-idx1-ubyte.
+#   "mnist/train-labels-idx1-ubyte.gz"
 # ]
 
 req = Req.new() |> ReqS3.run()

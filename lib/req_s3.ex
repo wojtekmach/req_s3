@@ -4,7 +4,7 @@ defmodule ReqS3 do
 
   ReqS3 handles a custom `s3://` url scheme that supports two endpoints:
 
-  ```
+  ```text
   s3://<bucket>        # list bucket items
   s3://<bucket>/<item> # get item content
   ```
