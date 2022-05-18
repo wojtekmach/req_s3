@@ -1,6 +1,6 @@
 # ReqS3
 
-[Req](https://github.com/wojtekmach/req_s3) plugin for [Amazon S3](https://aws.amazon.com/s3/).
+[Req](https://github.com/wojtekmach/req) plugin for [Amazon S3](https://aws.amazon.com/s3/).
 
 ReqS3 handles a custom `s3://` url scheme that supports two endpoints:
 
