@@ -13,8 +13,8 @@ s3://<bucket>/<item> # get item content
 
 ```elixir
 Mix.install([
-  {:req, github: "wojtekmach/req"},
-  {:req_s3, github: "wojtekmach/req_s3"}
+  {:req, "~> 0.3.0"},
+  {:req_s3, "~> 0.1.0"}
 ])
 
 req = Req.new() |> ReqS3.attach()
