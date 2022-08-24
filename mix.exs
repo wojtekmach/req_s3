@@ -14,7 +14,14 @@ defmodule ReqS3.MixProject do
       ],
       docs: [
         main: "readme",
-        extras: ["README.md"]
+        extras: ["README.md", "CHANGELOG.md"]
+      ],
+      package: [
+        description: "Req plugin for Amazon S3.",
+        licenses: ["Apache-2.0"],
+        links: %{
+          "GitHub" => "https://github.com/wojtekmach/req_s3"
+        }
       ]
     ]
   end
@@ -27,7 +34,7 @@ defmodule ReqS3.MixProject do
 
   defp deps do
     [
-      {:req, "~> 0.3.0-dev", github: "wojtekmach/req"},
+      {:req, "~> 0.3.0"},
       {:ex_doc, ">= 0.0.0", only: :docs}
     ]
   end
