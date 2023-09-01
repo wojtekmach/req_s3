@@ -16,7 +16,7 @@ defmodule ReqS3 do
   ## Examples
 
       iex> req = Req.new() |> ReqS3.attach()
-      iex> Req.get!(req, url: "s3://ossci-datasets").body
+      iex> Req.get!(req, url: "s3://ossci-datasets").body |> Enum.take(5)
       [
         "mnist/",
         "mnist/t10k-images-idx3-ubyte.gz",
@@ -59,8 +59,8 @@ defmodule ReqS3 do
   defp decode_body({request, response}) do
     if request.url.path in [nil, "/"] do
       opts = [space: :normalize, comments: false, encoding: :latin1]
-      {doc, ''} = :xmerl_scan.string(String.to_charlist(response.body), opts)
-      list = :xmerl_xpath.string('//ListBucketResult/Contents/Key/text()', doc)
+      {doc, ~c""} = :xmerl_scan.string(String.to_charlist(response.body), opts)
+      list = :xmerl_xpath.string(~c"//ListBucketResult/Contents/Key/text()", doc)
 
       body =
         for xmlText(value: value) <- list do

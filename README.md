@@ -13,7 +13,7 @@ s3://<bucket>/<item> # get item content
 
 ```elixir
 Mix.install([
-  {:req, "~> 0.3.0"},
+  {:req, "~> 0.4.0"},
   {:req_s3, "~> 0.1.0"}
 ])
 
