@@ -4,7 +4,7 @@ defmodule ReqS3.MixProject do
   def project do
     [
       app: :req_s3,
-      version: "0.1.1",
+      version: "0.2.0-dev",
       elixir: "~> 1.11",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
@@ -17,7 +17,7 @@ defmodule ReqS3.MixProject do
         extras: ["README.md", "CHANGELOG.md"]
       ],
       package: [
-        description: "Req plugin for Amazon S3.",
+        description: "Req plugin for S3.",
         licenses: ["Apache-2.0"],
         links: %{
           "GitHub" => "https://github.com/wojtekmach/req_s3"
@@ -34,7 +34,7 @@ defmodule ReqS3.MixProject do
 
   defp deps do
     [
-      {:req, "~> 0.4.0"},
+      {:req, "~> 0.5.0-dev", github: "wojtekmach/req"},
       {:ex_doc, ">= 0.0.0", only: :docs}
     ]
   end
