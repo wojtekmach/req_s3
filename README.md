@@ -53,6 +53,12 @@ Req.get!(presigned_url).body
 #=> "Hello, World!"
 ```
 
+## TODO
+
+  * Add Phoenix Playground example.
+
+  * Change "list bucket" to return all data, not just key names
+
 ## License
 
 Copyright (c) 2021 Wojtek Mach
