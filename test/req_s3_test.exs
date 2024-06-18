@@ -41,7 +41,4 @@ defmodule ReqS3Test do
     assert "https://wojtekmach-test.s3.amazonaws.com/foo?X-Amz-Algorithm=AWS4-HMAC-SHA256&" <> _ =
              ReqS3.presign_url("s3://wojtekmach-test/foo", options)
   end
-
-  test "presign_form/2" do
-  end
 end
