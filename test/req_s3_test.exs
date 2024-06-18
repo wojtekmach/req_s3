@@ -45,4 +45,28 @@ defmodule ReqS3Test do
     assert "https://wojtekmach-test.s3.amazonaws.com/foo?X-Amz-Algorithm=AWS4-HMAC-SHA256&" <> _ =
              ReqS3.presign_url("s3://wojtekmach-test/foo", options)
   end
+
+  test "presign_form/1" do
+    options = [
+      access_key_id: System.fetch_env!("AWS_ACCESS_KEY_ID"),
+      secret_access_key: System.fetch_env!("AWS_SECRET_ACCESS_KEY"),
+      bucket: "wojtekmach-test",
+      key: "key1",
+      content_type: "text/plain"
+    ]
+
+    IO.puts("""
+    <form method="post" action="https://s3.amazonaws.com">
+    """)
+
+    for {name, value} <- ReqS3.presign_form(options) do
+      IO.puts(~s[<input type=text name="#{name}" value="#{value}"/>])
+    end
+
+    IO.puts("""
+    <input type="file" name="file">
+    <input type="submit" value="Upload">
+    </form>
+    """)
+  end
 end
