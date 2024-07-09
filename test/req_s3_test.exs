@@ -4,11 +4,15 @@ defmodule ReqS3Test do
   doctest ReqS3, tags: [:integration], except: [presign_form: 1]
 
   setup_all do
-    if System.get_env("AWS_ACCESS_KEY_ID") do
+    if System.get_env("REQ_AWS_ACCESS_KEY_ID") do
+      for name <- ~w[AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY] do
+        System.put_env(name, System.fetch_env!("REQ_#{name}"))
+      end
+
       options = [
         service: "s3",
-        access_key_id: System.fetch_env!("AWS_ACCESS_KEY_ID"),
-        secret_access_key: System.fetch_env!("AWS_SECRET_ACCESS_KEY")
+        access_key_id: System.fetch_env!("REQ_AWS_ACCESS_KEY_ID"),
+        secret_access_key: System.fetch_env!("REQ_AWS_SECRET_ACCESS_KEY")
       ]
 
       %{status: 200} =

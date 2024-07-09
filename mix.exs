@@ -8,7 +8,11 @@ defmodule ReqS3.MixProject do
       elixir: "~> 1.11",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
+      aliases: [
+        "test.all": ["test --include integration"]
+      ],
       preferred_cli_env: [
+        "test.all": :test,
         docs: :docs,
         "hex.publish": :docs
       ],
