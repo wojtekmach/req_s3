@@ -39,7 +39,8 @@ defmodule ReqS3.MixProject do
   defp deps do
     [
       {:req, "~> 0.5.0"},
-      {:ex_doc, ">= 0.0.0", only: :docs}
+      {:ex_doc, ">= 0.0.0", only: :docs},
+      {:multipart, ">= 0.0.0", only: :test}
     ]
   end
 end

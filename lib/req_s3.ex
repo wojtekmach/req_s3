@@ -124,7 +124,7 @@ defmodule ReqS3 do
       iex> body
       "Hello, World!"
   """
-  def presign_url(url, options \\ [])
+  def presign_url(url, options)
       when (is_binary(url) or is_struct(url, URI)) and is_list(options) do
     Keyword.fetch!(options, :access_key_id)
     Keyword.fetch!(options, :secret_access_key)
@@ -132,11 +132,28 @@ defmodule ReqS3 do
 
     options =
       options
-      |> Keyword.put(:method, :get)
+      |> Keyword.put_new(:method, :get)
       |> Keyword.put(:url, url)
       |> Keyword.put_new(:region, "us-east-1")
       |> Keyword.put(:service, "s3")
       |> Keyword.put(:datetime, DateTime.utc_now())
+
+    options |> Req.Utils.aws_sigv4_url() |> URI.to_string()
+  end
+
+  def presign_url(options) do
+    options =
+      options
+      |> Keyword.put_new(:method, :get)
+      |> Keyword.put_new_lazy(:url, fn ->
+        bucket = Keyword.fetch!(options, :bucket)
+        key = Keyword.fetch!(options, :key)
+        "https://#{bucket}.s3.amazonaws.com/#{key}"
+      end)
+      |> Keyword.put_new(:region, "us-east-1")
+      |> Keyword.put(:service, "s3")
+      |> Keyword.put(:datetime, DateTime.utc_now())
+      |> Keyword.drop([:bucket, :key])
 
     options |> Req.Utils.aws_sigv4_url() |> URI.to_string()
   end
@@ -166,14 +183,16 @@ defmodule ReqS3 do
 
   ## Examples
 
-  iex> options = [
+  iex> credentials = [
   ...>   access_key_id: System.fetch_env!("AWS_ACCESS_KEY_ID"),
   ...>   secret_access_key: System.fetch_env!("AWS_SECRET_ACCESS_KEY"),
+  ...> ]
+  iex> options = [
   ...>   bucket: "wojtekmach-test",
   ...>   key: "key1",
   ...>   expires_in: :timer.hours(1)
   ...> ]
-  iex> ReqS3.presign_form(options)
+  iex> ReqS3.presign_form_fields(credentials, options)
   %{
     "key" => "key1",
     "policy" => "eyJjb25kaXRpb25z...ifQ==",
@@ -184,11 +203,40 @@ defmodule ReqS3 do
     "x-amz-signature" => "465315d202fbb2ce081f79fca755a958a18ff68d253e6d2a611ca4b2292d8925"
   }
   """
-  def presign_form(options) when is_list(options) do
+  def presign_form_fields(options) do
+    {credentials, options} = Keyword.split(options, ~w[access_key_id secret_access_key region]a)
+    presign_form_fields(credentials, options)
+  end
+
+  def presign_form_fields(credentials, options) when is_list(options) do
+    credentials =
+      case credentials do
+        list when is_list(list) ->
+          list
+
+        map when is_map(map) ->
+          Enum.to_list(map)
+
+        other ->
+          raise ArgumentError,
+                "credentials must be a keywords list or a map, got: #{inspect(other)}"
+      end
+
+    credentials =
+      credentials
+      # aws_credentials returns this key so let's ignore it
+      |> Keyword.drop([:credential_provider])
+      |> Keyword.validate!([
+        :access_key_id,
+        :secret_access_key,
+        region: "us-east-1"
+      ])
+
     service = "s3"
     region = Keyword.get(options, :region, "us-east-1")
-    access_key_id = Keyword.fetch!(options, :access_key_id)
-    secret_access_key = Keyword.fetch!(options, :secret_access_key)
+    access_key_id = Keyword.fetch!(credentials, :access_key_id)
+    secret_access_key = Keyword.fetch!(credentials, :secret_access_key)
+
     bucket = Keyword.fetch!(options, :bucket)
     key = Keyword.fetch!(options, :key)
     content_type = Keyword.get(options, :content_type)
@@ -210,16 +258,32 @@ defmodule ReqS3 do
       {"x-amz-date", datetime_string}
     ]
 
+    content_type_conditions =
+      if content_type do
+        [["eq", "$Content-Type", "#{content_type}"]]
+      else
+        []
+      end
+
+    content_length_range_conditions =
+      if max_size do
+        [["content-length-range", 0, max_size]]
+      else
+        []
+      end
+
+    conditions =
+      [
+        %{"bucket" => "#{bucket}"},
+        ["eq", "$key", "#{key}"]
+      ] ++
+        content_type_conditions ++
+        content_length_range_conditions ++
+        Enum.map(amz_headers, fn {key, value} -> %{key => value} end)
+
     policy = %{
       "expiration" => DateTime.to_iso8601(datetime),
-      "conditions" =>
-        [
-          %{"bucket" => "#{bucket}"},
-          ["eq", "$key", "#{key}"],
-          # TODO: don't include content-type if it's empty. Same for max size
-          ["eq", "$Content-Type", "#{content_type}"],
-          ["content-length-range", 0, max_size]
-        ] ++ Enum.map(amz_headers, fn {key, value} -> %{key => value} end)
+      "conditions" => conditions
     }
 
     encoded_policy = policy |> Jason.encode!() |> Base.encode64()
@@ -233,15 +297,24 @@ defmodule ReqS3 do
         secret_access_key
       )
 
-    Map.merge(
-      Map.new(amz_headers),
-      %{
-        "key" => key,
-        "content-type" => content_type,
-        "policy" => encoded_policy,
-        "x-amz-signature" => signature
-      }
-    )
+    fields =
+      Map.merge(
+        Map.new(amz_headers),
+        %{
+          "key" => key,
+          "policy" => encoded_policy,
+          "x-amz-signature" => signature
+        }
+      )
+
+    fields =
+      if content_type do
+        Map.merge(fields, %{"content-type" => content_type})
+      else
+        fields
+      end
+
+    fields
   end
 
   defp normalize_url(%URI{scheme: "s3"} = url) do

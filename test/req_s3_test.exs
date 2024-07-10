@@ -1,7 +1,7 @@
 defmodule ReqS3Test do
   use ExUnit.Case, async: true
 
-  doctest ReqS3, tags: [:integration], except: [presign_form: 1]
+  doctest ReqS3, tags: [:integration], except: [presign_form_fields: 2]
 
   setup_all do
     if System.get_env("REQ_AWS_ACCESS_KEY_ID") do
@@ -46,27 +46,52 @@ defmodule ReqS3Test do
              ReqS3.presign_url("s3://wojtekmach-test/foo", options)
   end
 
-  test "presign_form/1" do
+  test "presign_url/2 upload" do
     options = [
       access_key_id: System.fetch_env!("AWS_ACCESS_KEY_ID"),
-      secret_access_key: System.fetch_env!("AWS_SECRET_ACCESS_KEY"),
+      secret_access_key: System.fetch_env!("AWS_SECRET_ACCESS_KEY")
+    ]
+
+    url = ReqS3.presign_url("s3://wojtekmach-test/foo", [method: :put] ++ options)
+
+    body = "hi#{Time.utc_now()}"
+
+    %{status: 200} =
+      Req.put!(url, body: body)
+
+    %{status: 200, body: ^body} =
+      Req.get!("https://wojtekmach-test.s3.amazonaws.com/foo",
+        aws_sigv4: [service: :s3] ++ options
+      )
+  end
+
+  test "presign_form_fields/2" do
+    credentials = [
+      access_key_id: System.fetch_env!("AWS_ACCESS_KEY_ID"),
+      secret_access_key: System.fetch_env!("AWS_SECRET_ACCESS_KEY")
+    ]
+
+    options = [
       bucket: "wojtekmach-test",
       key: "key1",
       content_type: "text/plain"
     ]
 
-    IO.puts("""
-    <form method="post" action="https://s3.amazonaws.com">
-    """)
+    multipart =
+      ReqS3.presign_form_fields(credentials, options)
+      |> Enum.reduce(Multipart.new(), fn {name, value}, acc ->
+        Multipart.add_part(acc, Multipart.Part.text_field(value, name))
+      end)
+      |> Multipart.add_part(Multipart.Part.file_content_field("a.txt", "aaa", :file))
 
-    for {name, value} <- ReqS3.presign_form(options) do
-      IO.puts(~s[<input type=text name="#{name}" value="#{value}"/>])
-    end
+    multipart =
+      multipart
 
-    IO.puts("""
-    <input type="file" name="file">
-    <input type="submit" value="Upload">
-    </form>
-    """)
+    %{status: 204} =
+      Req.post!(
+        url: "https://wojtekmach-test.s3.amazonaws.com",
+        body: Multipart.body_binary(multipart),
+        headers: [content_type: Multipart.content_type(multipart, "multipart/form-data")]
+      )
   end
 end
