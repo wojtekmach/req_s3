@@ -1,0 +1,99 @@
+defmodule ReqS3.XMLTest do
+  use ExUnit.Case, async: true
+
+  describe "parse_s3_list_objects" do
+    test "it works" do
+      xml = """
+      <?xml version="1.0" encoding="UTF-8"?>
+      <ListBucketResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
+        <Name>ossci-datasets</Name>
+        <Prefix></Prefix>
+        <Marker></Marker>
+        <MaxKeys>1000</MaxKeys>
+        <IsTruncated>false</IsTruncated>
+        <Contents>
+          <Key>mnist/</Key>
+          <LastModified>2020-03-04T15:45:17.000Z</LastModified>
+          <ETag>&quot;d41d8cd98f00b204e9800998ecf8427e&quot;</ETag>
+          <Size>0</Size>
+          <StorageClass>STANDARD</StorageClass>
+        </Contents>
+        <Contents>
+          <Key>mnist/t10k-images-idx3-ubyte.gz</Key>
+          <LastModified>2020-03-04T15:45:52.000Z</LastModified>
+          <ETag>&quot;9fb629c4189551a2d022fa330f9573f3&quot;</ETag>
+          <Size>1648877</Size>
+          <StorageClass>STANDARD</StorageClass>
+        </Contents>
+      </ListBucketResult>
+      """
+
+      assert ReqS3.XML.parse_s3_list_objects(xml) == %{
+               "ListBucketResult" => %{
+                 "Contents" => [
+                   %{
+                     "ETag" => "\"d41d8cd98f00b204e9800998ecf8427e\"",
+                     "Key" => "mnist/",
+                     "LastModified" => "2020-03-04T15:45:17.000Z",
+                     "Size" => "0",
+                     "StorageClass" => "STANDARD"
+                   },
+                   %{
+                     "ETag" => "\"9fb629c4189551a2d022fa330f9573f3\"",
+                     "Key" => "mnist/t10k-images-idx3-ubyte.gz",
+                     "LastModified" => "2020-03-04T15:45:52.000Z",
+                     "Size" => "1648877",
+                     "StorageClass" => "STANDARD"
+                   }
+                 ],
+                 "IsTruncated" => "false",
+                 "Marker" => nil,
+                 "MaxKeys" => "1000",
+                 "Name" => "ossci-datasets",
+                 "Prefix" => nil
+               }
+             }
+    end
+  end
+
+  describe "parse_simple/1" do
+    test "it works" do
+      xml = """
+      <?xml version="1.0"?>
+      <root>
+        <children>
+          <child id="1">Content 1</child>
+        </children>
+      </root>
+      """
+
+      assert ReqS3.XML.parse_simple(xml) ==
+               {"root", [], [{"children", [], [{"child", [{"id", "1"}], ["Content 1"]}]}]}
+    end
+
+    test "does not leak atoms" do
+      uniq = System.unique_integer()
+
+      xml = """
+      <?xml version="1.0"?>
+      <element#{uniq} attribute#{uniq}=""/>
+      """
+
+      assert ReqS3.XML.parse_simple(xml) == {"element#{uniq}", [{"attribute#{uniq}", ""}], []}
+
+      e =
+        assert_raise ArgumentError, fn ->
+          String.to_existing_atom("element#{uniq}")
+        end
+
+      assert e.message =~ "not an already existing atom"
+
+      e =
+        assert_raise ArgumentError, fn ->
+          String.to_existing_atom("attribute#{uniq}")
+        end
+
+      assert e.message =~ "not an already existing atom"
+    end
+  end
+end

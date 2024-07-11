@@ -21,13 +21,17 @@ req = Req.new() |> ReqS3.attach()
 
 Req.get!(req, url: "s3://ossci-datasets").body
 #=>
-# [
-#   "mnist/",
-#   "mnist/t10k-images-idx3-ubyte.gz",
-#   "mnist/t10k-labels-idx1-ubyte.gz",
-#   "mnist/train-images-idx3-ubyte.gz",
-#   "mnist/train-labels-idx1-ubyte.gz"
-# ]
+# %{
+#   "ListBucketResult" => %{
+#     "Contents" => [
+#       %{"Key" => "mnist/", ...},
+#       %{"Key" => "mnist/t10k-images-idx3-ubyte.gz", ...},
+#       ...
+#     ],
+#     "Name" => "ossci-datasets",
+#     ...
+#   }
+# }
 
 body = Req.get!(req, url: "s3://ossci-datasets/mnist/t10k-images-idx3-ubyte.gz").body
 <<_::32, n_images::32, n_rows::32, n_cols::32, _body::binary>> = body
@@ -56,8 +60,6 @@ Req.get!(presigned_url).body
 ## TODO
 
   * Add Phoenix Playground example.
-
-  * Change "list bucket" to return all data, not just key names
 
 ## License
 

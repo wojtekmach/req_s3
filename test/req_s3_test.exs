@@ -33,7 +33,17 @@ defmodule ReqS3Test do
       |> ReqS3.attach()
 
     body = Req.get!(req, url: "s3://ossci-datasets").body
-    assert "mnist/t10k-images-idx3-ubyte.gz" in body
+
+    assert %{
+             "ListBucketResult" => %{
+               "Name" => "ossci-datasets",
+               "Contents" => [
+                 %{"Key" => "mnist/", "Size" => "0"},
+                 %{"Key" => "mnist/t10k-images-idx3-ubyte.gz", "Size" => "1648877"}
+                 | _
+               ]
+             }
+           } = body
   end
 
   test "presign_url/2" do

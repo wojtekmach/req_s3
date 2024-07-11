@@ -77,24 +77,10 @@ defmodule ReqS3 do
     end
   end
 
-  require Record
-
-  for {name, fields} <- Record.extract_all(from_lib: "xmerl/include/xmerl.hrl") do
-    Record.defrecordp(name, fields)
-  end
-
   defp decode_body({request, response}) do
     if request.url.path in [nil, "/"] do
-      opts = [space: :normalize, comments: false, encoding: :latin1]
-      {doc, ~c""} = :xmerl_scan.string(String.to_charlist(response.body), opts)
-      list = :xmerl_xpath.string(~c"//ListBucketResult/Contents/Key/text()", doc)
-
-      body =
-        for xmlText(value: value) <- list do
-          List.to_string(value)
-        end
-
-      {request, %{response | body: body}}
+      response = update_in(response.body, &ReqS3.XML.parse_s3_list_objects/1)
+      {request, response}
     else
       {request, response}
     end
