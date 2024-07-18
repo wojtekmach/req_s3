@@ -2,25 +2,29 @@ defmodule ReqS3.XML do
   @moduledoc false
 
   def parse_s3_list_objects(xml) do
-    {"ListBucketResult", _, content} = parse_simple(xml)
+    case parse_simple(xml) do
+      {"ListBucketResult", _, content} ->
+        content =
+          Enum.reduce(content, %{}, fn
+            {"Contents", _attributes, content}, acc ->
+              content =
+                Enum.reduce(content, %{}, fn
+                  {name, _attribute, value}, acc ->
+                    Map.put(acc, name, value(value))
+                end)
 
-    content =
-      Enum.reduce(content, %{}, fn
-        {"Contents", _attributes, content}, acc ->
-          content =
-            Enum.reduce(content, %{}, fn
-              {name, _attribute, value}, acc ->
-                Map.put(acc, name, value(value))
-            end)
+              Map.update(acc, "Contents", [content], &[content | &1])
 
-          Map.update(acc, "Contents", [content], &[content | &1])
+            {name, _attribute, value}, acc ->
+              Map.put(acc, name, value(value))
+          end)
 
-        {name, _attribute, value}, acc ->
-          Map.put(acc, name, value(value))
-      end)
+        content = Map.update!(content, "Contents", &Enum.reverse/1)
+        %{"ListBucketResult" => content}
 
-    content = Map.update!(content, "Contents", &Enum.reverse/1)
-    %{"ListBucketResult" => content}
+      _other ->
+        xml
+    end
   end
 
   defp value([]), do: nil
