@@ -63,7 +63,8 @@ defmodule ReqS3 do
   end
 
   defp decode_body({request, response}) do
-    if request.url.path in [nil, "/"] do
+    if request.url.path in [nil, "/"] and request.options[:decode_body] != false and
+         request.options[:raw] != true do
       response = update_in(response.body, &ReqS3.XML.parse_s3_list_objects/1)
       {request, response}
     else
