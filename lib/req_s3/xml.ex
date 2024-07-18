@@ -78,26 +78,14 @@ defmodule ReqS3.XML do
       end
 
     %{state | state: state.fun.({:start_element, List.to_string(name), attributes}, state.state)}
-  rescue
-    e ->
-      dbg(__STACKTRACE__)
-      reraise e, __STACKTRACE__
   end
 
   defp process({:endElement, _uri, name, _qualified_name}, _loc, state) do
     %{state | state: state.fun.({:end_element, List.to_string(name)}, state.state)}
-  rescue
-    e ->
-      dbg(__STACKTRACE__)
-      reraise e, __STACKTRACE__
   end
 
   defp process({:characters, charlist}, _loc, state) do
     %{state | state: state.fun.({:characters, List.to_string(charlist)}, state.state)}
-  rescue
-    e ->
-      dbg(__STACKTRACE__)
-      reraise e, __STACKTRACE__
   end
 
   defp process(_event, _loc, state) do

@@ -39,7 +39,7 @@ body = Req.get!(req, url: "s3://ossci-datasets/mnist/t10k-images-idx3-ubyte.gz")
 #=> {10_000, 28, 28}
 ```
 
-It can be also used to presign URLs:
+ReqS3 can be also used to presign URLs:
 
 ```elixir
 options = [
@@ -47,13 +47,21 @@ options = [
   secret_access_key: System.fetch_env!("AWS_SECRET_ACCESS_KEY")
 ]
 
-req = Req.new() |> ReqS3.attach()
-Req.put!("s3://bucket1/key1", body: "Hello, World!", aws_sigv4: options)
+req = Req.new() |> ReqS3.attach(aws_sigv4: options)
+%{status: 200} = Req.put!(req, url: "s3://bucket1/key1", body: "Hello, World!")
 
-presigned_url = ReqS3.presign_url("s3://bucket1/key1", options)
+presigned_url = ReqS3.presign_url([url: "s3://bucket1/key1"] ++ options)
 #=> "https://s3.amazonaws.com/bucket1/key1?X-Amz-Algorithm=AWS4-HMAC-SHA256&..."
 
 Req.get!(presigned_url).body
+#=> "Hello, World!"
+```
+
+and form uploads:
+
+```elixir
+form = ReqS3.presign_form([bucket: "bucket1", key: "key1"] ++ options)
+Req.post!(form.url, form_multipart: [file: "Hello, World!"] ++ form.fields)
 #=> "Hello, World!"
 ```
 
