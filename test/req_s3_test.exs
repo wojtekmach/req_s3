@@ -27,6 +27,23 @@ defmodule ReqS3Test do
     :ok
   end
 
+  @tag :integration
+  test "list buckets" do
+    req =
+      Req.new()
+      |> ReqS3.attach(
+        aws_sigv4: [
+          access_key_id: System.fetch_env!("REQ_AWS_ACCESS_KEY_ID"),
+          secret_access_key: System.fetch_env!("REQ_AWS_SECRET_ACCESS_KEY")
+        ]
+      )
+
+    bucket = System.fetch_env!("BUCKET_NAME")
+    resp = Req.get!(req, url: "s3://")
+    %{"ListAllMyBucketsResult" => %{"Buckets" => buckets}} = resp.body
+    assert Enum.any?(buckets, &(&1["Bucket"]["Name"] == bucket))
+  end
+
   test "list objects" do
     req =
       Req.new()
@@ -44,6 +61,37 @@ defmodule ReqS3Test do
                ]
              }
            } = body
+  end
+
+  test "list objects with custom AWS_ENDPOINT_URL_S3" do
+    old = System.get_env("AWS_ENDPOINT_URL_S3")
+
+    try do
+      System.put_env("AWS_ENDPOINT_URL_S3", "https://s3.amazonaws.com")
+
+      req =
+        Req.new()
+        |> ReqS3.attach()
+
+      body = Req.get!(req, url: "s3://ossci-datasets").body
+
+      assert %{
+               "ListBucketResult" => %{
+                 "Name" => "ossci-datasets",
+                 "Contents" => [
+                   %{"Key" => "mnist/", "Size" => "0"},
+                   %{"Key" => "mnist/t10k-images-idx3-ubyte.gz", "Size" => "1648877"}
+                   | _
+                 ]
+               }
+             } = body
+    after
+      if old do
+        System.put_env("AWS_ENDPOINT_URL_S3", old)
+      else
+        System.delete_env("AWS_ENDPOINT_URL_S3")
+      end
+    end
   end
 
   test "presign_url/1" do
@@ -75,7 +123,7 @@ defmodule ReqS3Test do
       )
   end
 
-  test "presign_form_fields/1" do
+  test "presign_form/1" do
     options = [
       access_key_id: System.fetch_env!("AWS_ACCESS_KEY_ID"),
       secret_access_key: System.fetch_env!("AWS_SECRET_ACCESS_KEY")

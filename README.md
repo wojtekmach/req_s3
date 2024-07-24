@@ -2,12 +2,25 @@
 
 [Req](https://github.com/wojtekmach/req) plugin for [Amazon S3](https://aws.amazon.com/s3/) and S3-compatible services.
 
-ReqS3 handles a custom `s3://` url scheme that supports these URLs:
+<!-- MDOC !-->
 
-```text
-s3://<bucket>        # GET bucket items list
-s3://<bucket>/<item> # GET/PUT bucket item
+ReqS3 handles a custom `s3://` url scheme. Example requests are:
+
+```elixir
+# list buckets
+Req.get!(req, url: "s3://")
+
+# list objects
+Req.get!(req, url: "s3://#{bucket}")
+
+# get object
+Req.get!(req, url: "s3://#{bucket}/#{key}")
+
+# put object
+Req.put!(req, url: "s3://#{bucket}/#{key}")
 ```
+
+The responses for listing buckets and objects are automatically decoded.
 
 ## Usage
 
@@ -39,6 +52,8 @@ body = Req.get!(req, url: "s3://ossci-datasets/mnist/t10k-images-idx3-ubyte.gz")
 #=> {10_000, 28, 28}
 ```
 
+### Pre-signing
+
 ReqS3 can be also used to presign URLs:
 
 ```elixir
@@ -64,6 +79,8 @@ form = ReqS3.presign_form([bucket: "bucket1", key: "key1"] ++ options)
 Req.post!(form.url, form_multipart: [file: "Hello, World!"] ++ form.fields)
 #=> "Hello, World!"
 ```
+
+<!-- MDOC !-->
 
 ## TODO
 

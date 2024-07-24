@@ -1,54 +1,25 @@
 defmodule ReqS3 do
-  @moduledoc """
-  `Req` plugin for [Amazon S3](https://aws.amazon.com/s3) and S3 API-compatible services.
-
-  ReqS3 handles a custom `s3://` url scheme that supports two endpoints:
-
-  ```text
-  s3://<bucket>        # list bucket items
-  s3://<bucket>/<item> # get item content
-  ```
-
-  ## Examples
-
-      iex> req = Req.new() |> ReqS3.attach()
-      iex> Req.get!(req, url: "s3://ossci-datasets").body
-      %{
-        "ListBucketResult" => %{
-          "Contents" => [
-            %{"Key" => "mnist/", ...},
-            %{"Key" => "mnist/t10k-images-idx3-ubyte.gz", ...},
-            ...
-          ],
-          "Name" => "ossci-datasets",
-          ...
-        }
-      }
-
-      iex> req = Req.new() |> ReqS3.attach()
-      iex> body = Req.get!(req, url: "s3://ossci-datasets/mnist/t10k-images-idx3-ubyte.gz").body
-      iex> <<_::32, n_images::32, n_rows::32, n_cols::32, _body::binary>> = body
-      iex> {n_images, n_rows, n_cols}
-      {10_000, 28, 28}
-
-  ## Pre-signing
-
-  See `presign_url/1` and `presign_form/1`.
-  """
+  @external_resource "README.md"
+  @moduledoc "README.md"
+             |> File.read!()
+             |> String.split("<!-- MDOC !-->")
+             |> Enum.fetch!(1)
 
   @doc """
   Attaches the plugin.
   """
   def attach(request, options \\ []) do
     request
-    |> add_request_steps_before([s3_parse_url: &parse_url/1], :put_aws_sigv4)
+    |> add_request_steps_before([s3_handle_url: &handle_s3_url/1], :put_aws_sigv4)
     |> Req.merge(options)
   end
 
-  defp parse_url(request) do
+  defp handle_s3_url(request) do
     if request.url.scheme == "s3" do
+      {url, bucket} = parse_url(request.url)
+
       request
-      |> Map.update!(:url, &normalize_url/1)
+      |> Map.replace!(:url, url)
       |> Map.update!(:options, fn options ->
         if options[:aws_sigv4] do
           put_in(options[:aws_sigv4][:service], :s3)
@@ -56,16 +27,28 @@ defmodule ReqS3 do
           options
         end
       end)
-      |> Req.Request.append_response_steps(req_s3_decode_body: &decode_body/1)
+      |> Req.Request.append_response_steps(
+        req_s3_decode_body: &decode_body(&1, bucket, request.url.path)
+      )
     else
       request
     end
   end
 
-  defp decode_body({request, response}) do
-    if request.url.path in [nil, "/"] and request.options[:decode_body] != false and
-         request.options[:raw] != true do
-      response = update_in(response.body, &ReqS3.XML.parse_s3_list_objects/1)
+  defp decode_body({request, response}, bucket, path) do
+    if request.method in [:get, :head] and
+         path in [nil, ""] and
+         request.options[:decode_body] != false and
+         request.options[:raw] != true and
+         match?(["application/xml" <> _], response.headers["content-type"]) do
+      fun =
+        if bucket do
+          &ReqS3.XML.parse_s3_list_objects/1
+        else
+          &ReqS3.XML.parse_s3_list_buckets/1
+        end
+
+      response = update_in(response.body, fun)
       {request, response}
     else
       {request, response}
@@ -267,24 +250,49 @@ defmodule ReqS3 do
   end
 
   defp normalize_url(%URI{scheme: "s3"} = url) do
-    host =
-      case String.split(url.host, ".") do
-        [host] ->
-          "#{host}.s3.amazonaws.com"
-
-        _ ->
-          # leave e.g. s3.amazonaws.com as is
-          url.host
-      end
-
-    %{url | scheme: "https", host: host, authority: host, port: 443}
+    {url, _bucket} = parse_url(url)
+    url
   end
 
   defp normalize_url(%URI{} = url) do
     url
   end
 
-  # TODO: Req.add_request_steps(req, steps, before: :step)
+  defp parse_url(url) do
+    url = %{url | scheme: "https", port: 443}
+
+    case String.split(url.host, ".") do
+      _ when url.host == "" ->
+        url =
+          if endpoint_url = System.get_env("AWS_ENDPOINT_URL_S3") do
+            host = URI.new!(endpoint_url).host
+            %{url | host: host, authority: nil}
+          else
+            host = "s3.amazonaws.com"
+            %{url | host: host, authority: nil, path: "/"}
+          end
+
+        {url, nil}
+
+      [bucket] ->
+        url =
+          if endpoint_url = System.get_env("AWS_ENDPOINT_URL_S3") do
+            host = URI.new!(endpoint_url).host
+            %{url | host: host, authority: nil, path: "/#{bucket}#{url.path}"}
+          else
+            host = "#{bucket}.s3.amazonaws.com"
+            %{url | host: host, authority: nil}
+          end
+
+        {url, bucket}
+
+      # leave e.g. s3.amazonaws.com as is
+      _ ->
+        {url, nil}
+    end
+  end
+
+  # TODO: Req.add_request_steps(req, steps, before: step)
   defp add_request_steps_before(request, steps, before_step_name) do
     request
     |> Map.update!(:request_steps, &prepend_steps(&1, steps, before_step_name))

@@ -1,6 +1,40 @@
 defmodule ReqS3.XMLTest do
   use ExUnit.Case, async: true
 
+  describe "parse_s3_list_buckets" do
+    test "it works" do
+      xml = """
+      <?xml version="1.0" encoding="UTF-8"?>
+      <ListAllMyBucketsResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
+        <Owner>
+          <ID>7a39</ID>
+          <DisplayName>owner</DisplayName>
+        </Owner>
+        <Buckets>
+          <Bucket>
+            <Name>bucket1</Name>
+            <CreationDate>2023-02-21T15:41:58.000Z</CreationDate>
+          </Bucket>
+        </Buckets>
+      </ListAllMyBucketsResult>
+      """
+
+      assert ReqS3.XML.parse_s3_list_buckets(xml) == %{
+               "ListAllMyBucketsResult" => %{
+                 "Buckets" => [
+                   %{
+                     "Bucket" => %{
+                       "CreationDate" => "2023-02-21T15:41:58.000Z",
+                       "Name" => "bucket1"
+                     }
+                   }
+                 ],
+                 "Owner" => %{"DisplayName" => "owner", "ID" => "7a39"}
+               }
+             }
+    end
+  end
+
   describe "parse_s3_list_objects" do
     test "it works" do
       xml = """

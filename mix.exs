@@ -5,7 +5,7 @@ defmodule ReqS3.MixProject do
     [
       app: :req_s3,
       version: "0.2.0",
-      elixir: "~> 1.11",
+      elixir: "~> 1.15",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       aliases: [
