@@ -31,12 +31,7 @@ defmodule ReqS3Test do
   test "list buckets" do
     req =
       Req.new()
-      |> ReqS3.attach(
-        aws_sigv4: [
-          access_key_id: System.fetch_env!("REQ_AWS_ACCESS_KEY_ID"),
-          secret_access_key: System.fetch_env!("REQ_AWS_SECRET_ACCESS_KEY")
-        ]
-      )
+      |> ReqS3.attach()
 
     bucket = System.fetch_env!("BUCKET_NAME")
     resp = Req.get!(req, url: "s3://")

@@ -21,8 +21,21 @@ defmodule ReqS3 do
       request
       |> Map.replace!(:url, url)
       |> Map.update!(:options, fn options ->
+        options = Map.put_new(options, :aws_sigv4, [])
+
         if options[:aws_sigv4] do
-          put_in(options[:aws_sigv4][:service], :s3)
+          options = put_in(options[:aws_sigv4][:service], :s3)
+
+          options =
+            put_in(options[:aws_sigv4][:access_key_id], System.fetch_env!("AWS_ACCESS_KEY_ID"))
+
+          options =
+            put_in(
+              options[:aws_sigv4][:secret_access_key],
+              System.fetch_env!("AWS_SECRET_ACCESS_KEY")
+            )
+
+          options
         else
           options
         end
