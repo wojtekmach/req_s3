@@ -1,5 +1,10 @@
 # ReqS3
 
+[![CI](https://github.com/wojtekmach/req_s3/actions/workflows/ci.yml/badge.svg)](https://github.com/wojtekmach/req_s3/actions/workflows/ci.yml)
+[![License](https://img.shields.io/hexpm/l/req_s3.svg)](https://github.com/wojtekmach/req_s3/blob/main/LICENSE.md)
+[![Version](https://img.shields.io/hexpm/v/req_s3.svg)](https://hex.pm/packages/req_s3)
+[![Hex Docs](https://img.shields.io/badge/documentation-gray.svg)](https://hexdocs.pm/req_s3)
+
 [Req](https://github.com/wojtekmach/req) plugin for [Amazon S3](https://aws.amazon.com/s3/) and S3-compatible services.
 
 <!-- MDOC !-->
