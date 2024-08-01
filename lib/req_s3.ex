@@ -16,7 +16,7 @@ defmodule ReqS3 do
 
   defp handle_s3_url(request) do
     if request.url.scheme == "s3" do
-      {url, bucket} = parse_url(request.url)
+      url = normalize_url(request.url)
 
       request
       |> Map.replace!(:url, url)
@@ -27,28 +27,19 @@ defmodule ReqS3 do
           options
         end
       end)
-      |> Req.Request.append_response_steps(
-        req_s3_decode_body: &decode_body(&1, bucket, request.url.path)
-      )
+      |> Req.Request.append_response_steps(req_s3_decode_body: &decode_body(&1, request.url.path))
     else
       request
     end
   end
 
-  defp decode_body({request, response}, bucket, path) do
+  defp decode_body({request, response}, path) do
     if request.method in [:get, :head] and
-         path in [nil, ""] and
+         path in [nil, "", "/"] and
          request.options[:decode_body] != false and
          request.options[:raw] != true and
          match?(["application/xml" <> _], response.headers["content-type"]) do
-      fun =
-        if bucket do
-          &ReqS3.XML.parse_s3_list_objects/1
-        else
-          &ReqS3.XML.parse_s3_list_buckets/1
-        end
-
-      response = update_in(response.body, fun)
+      response = update_in(response.body, &ReqS3.XML.parse_s3/1)
       {request, response}
     else
       {request, response}
@@ -250,15 +241,6 @@ defmodule ReqS3 do
   end
 
   defp normalize_url(%URI{scheme: "s3"} = url) do
-    {url, _bucket} = parse_url(url)
-    url
-  end
-
-  defp normalize_url(%URI{} = url) do
-    url
-  end
-
-  defp parse_url(url) do
     url = %{url | scheme: "https", port: 443}
 
     case String.split(url.host, ".") do
@@ -272,7 +254,7 @@ defmodule ReqS3 do
             %{url | host: host, authority: nil, path: "/"}
           end
 
-        {url, nil}
+        url
 
       [bucket] ->
         url =
@@ -284,12 +266,16 @@ defmodule ReqS3 do
             %{url | host: host, authority: nil}
           end
 
-        {url, bucket}
+        url
 
       # leave e.g. s3.amazonaws.com as is
       _ ->
-        {url, nil}
+        url
     end
+  end
+
+  defp normalize_url(%URI{} = url) do
+    url
   end
 
   # TODO: Req.add_request_steps(req, steps, before: step)

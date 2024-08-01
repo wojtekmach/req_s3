@@ -1,56 +1,115 @@
 defmodule ReqS3.XML do
   @moduledoc false
 
-  def parse_s3_list_buckets(xml) do
-    case parse_simple(xml) do
-      {"ListAllMyBucketsResult", _, content} ->
-        content =
-          Map.new(content, fn
-            {"Buckets", _, content} ->
-              {"Buckets",
-               Enum.map(content, fn {"Bucket", _, content} ->
-                 %{"Bucket" => map(content)}
-               end)}
+  @list_fields [
+    {"ListBucketResult", "Contents"},
+    {"ListVersionsResult", "Version"}
+  ]
 
-            {"Owner", _, content} ->
-              {"Owner", map(content)}
-          end)
+  @list_fields_skip [
+    {"ListAllMyBucketsResult", "Buckets", "Bucket"}
+  ]
 
-        %{"ListAllMyBucketsResult" => content}
+  @doc """
+  Parses S3 XML into maps, lists, and strings.
 
-      _other ->
-        xml
-    end
+  This is a best effort parser, trying to return the most convenient representation. This is
+  tricky because collections can be represented in multiple ways:
+
+      <ListAllMyBucketsResult>
+        <Buckets>
+          <Bucket><Name>bucket1</Name></Bucket>
+          <Bucket><Name>bucket2</Name></Bucket>
+        </Buckets>
+      </ListAllMyBucketResult>
+
+      <ListBucketResult>
+        <Name>bucket1</Name>
+        <Contents><Key>key1</Key></Contents>
+        <Contents><Key>key2</Key></Contents>
+      </ListBucketResult>
+
+  We handle `ListBucketResult/Contents`, `ListVersionsResult/Version`,
+  `ListAllMyBucketsResult/Buckets/Bucket` (and possibly others in the future) in a particular
+  way and have a best effort fallback.
+  """
+  def parse_s3(xml) do
+    parse(xml, {nil, []}, fn
+      {:start_element, name, _attributes}, {root, stack} ->
+        {root || name, [{name, nil} | stack]}
+
+      # Collect e.g. <ListBucketResults><Contents>...</Contents> into a "Contents" _list_.
+      {:end_element, name}, {root, [{name, val}, {parent_name, parent_val} | stack]}
+      when {root, name} in @list_fields ->
+        parent_val = Map.update(parent_val || %{}, name, [val], &(&1 ++ [val]))
+        {root, [{parent_name, parent_val} | stack]}
+
+      # Collect e.g. <ListAllMyBucketsResult><Buckets><Bucket>...</Bucket> into a "Buckets" _list_
+      # skipping "Bucket".
+      {:end_element, name}, {root, [{name, val}, {parent_name, parent_val} | stack]}
+      when {root, parent_name, name} in @list_fields_skip ->
+        parent_val = (parent_val || []) ++ [val]
+        {root, [{parent_name, parent_val} | stack]}
+
+      {:end_element, name}, {root, stack} ->
+        case stack do
+          # Best effort: by default simply put name/value into parent map. If the parent
+          # map already contains name, turn parent[name] into a list and keep appending.
+          # The obvious caveat is we'd only turn parent[name] into a list on the second element,
+          # hence if XML contained just one element for what is semantically a list, it will be
+          # represented as a map, not a list with single map element. As we discover these,
+          # let's update @list_fields and @list_fields_skip.
+          [{^name, val}, {parent_name, parent_val} | stack] ->
+            parent_val = Map.update(parent_val || %{}, name, val, &(List.wrap(&1) ++ [val]))
+            {root, [{parent_name, parent_val} | stack]}
+
+          [{name, val}] ->
+            {root, %{name => val}}
+
+          other ->
+            raise """
+            unexpected :end_element state:
+
+            #{inspect(other, pretty: true)}
+            """
+        end
+
+      {:characters, string}, {root, [{name, _} | stack]} ->
+        {root, [{name, string} | stack]}
+
+      other, {root, stack} ->
+        raise """
+        unexpected event:
+
+        #{inspect(other, pretty: true)}
+
+        root: #{root}
+
+        stack:
+
+        #{inspect(stack, pretty: true)}
+        """
+    end)
+    |> elem(1)
   end
 
-  def parse_s3_list_objects(xml) do
-    case parse_simple(xml) do
-      {"ListBucketResult", _, content} ->
-        content =
-          Enum.reduce(content, %{}, fn
-            {"Contents", _attributes, content}, acc ->
-              content = map(content)
-              Map.update(acc, "Contents", [content], &[content | &1])
+  @doc ~S'''
+  Parses XML into "simple format".
 
-            {name, _attribute, value}, acc ->
-              Map.put(acc, name, value(value))
-          end)
+  This is currently unused by ReqS3, it is just a demonstration of the underlying `parse/3`
+  function.
 
-        content = Map.update!(content, "Contents", &Enum.reverse/1)
-        %{"ListBucketResult" => content}
+  ## Examples
 
-      _other ->
-        xml
-    end
-  end
-
-  defp map(list) when is_list(list) do
-    Map.new(list, fn {name, _, value} -> {name, value(value)} end)
-  end
-
-  defp value([]), do: nil
-  defp value([value]), do: value
-
+      iex> xml = """
+      ...> <items>
+      ...>   <item><a>1</a></item>
+      ...>   <item><a>2</a></item>
+      ...> </items>
+      ...> """
+      iex> ReqS3.XML.parse_simple(xml)
+      {"items", [], [{"item", [], [{"a", [], ["1"]}]}, {"item", [], [{"a", [], ["2"]}]}]}
+  '''
   def parse_simple(xml) do
     parse(xml, [], fn
       {:start_element, name, attributes}, stack ->

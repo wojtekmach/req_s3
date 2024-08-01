@@ -1,6 +1,7 @@
 defmodule ReqS3Test do
   use ExUnit.Case, async: true
 
+  @moduletag :integration
   doctest ReqS3, tags: [:integration], only: [presign_url: 1]
 
   setup_all do
@@ -27,21 +28,15 @@ defmodule ReqS3Test do
     :ok
   end
 
-  @tag :integration
   test "list buckets" do
     req =
       Req.new()
-      |> ReqS3.attach(
-        aws_sigv4: [
-          access_key_id: System.fetch_env!("REQ_AWS_ACCESS_KEY_ID"),
-          secret_access_key: System.fetch_env!("REQ_AWS_SECRET_ACCESS_KEY")
-        ]
-      )
+      |> ReqS3.attach()
 
     bucket = System.fetch_env!("BUCKET_NAME")
     resp = Req.get!(req, url: "s3://")
     %{"ListAllMyBucketsResult" => %{"Buckets" => buckets}} = resp.body
-    assert Enum.any?(buckets, &(&1["Bucket"]["Name"] == bucket))
+    assert Enum.any?(buckets, fn %{"Name" => name} -> name == bucket end)
   end
 
   test "list objects" do
@@ -59,6 +54,23 @@ defmodule ReqS3Test do
                  %{"Key" => "mnist/t10k-images-idx3-ubyte.gz", "Size" => "1648877"}
                  | _
                ]
+             }
+           } = body
+  end
+
+  test "list versions" do
+    bucket = System.fetch_env!("BUCKET_NAME")
+
+    req =
+      Req.new()
+      |> ReqS3.attach()
+
+    body = Req.get!(req, url: "s3://#{bucket}?versions").body
+
+    assert %{
+             "ListVersionsResult" => %{
+               "Name" => ^bucket,
+               "Version" => [%{"Key" => _, "VersionId" => _} | _]
              }
            } = body
   end
@@ -123,7 +135,8 @@ defmodule ReqS3Test do
       )
   end
 
-  test "presign_form/1" do
+  @tag :tmp_dir
+  test "presign_form/1", %{tmp_dir: tmp_dir} do
     options = [
       access_key_id: System.fetch_env!("AWS_ACCESS_KEY_ID"),
       secret_access_key: System.fetch_env!("AWS_SECRET_ACCESS_KEY")
@@ -142,10 +155,13 @@ defmodule ReqS3Test do
     form = ReqS3.presign_form(presign_options)
     body = "test#{DateTime.utc_now()}"
 
+    File.write!("#{tmp_dir}/foo.txt", body)
+    file = File.stream!("#{tmp_dir}/foo.txt")
+
     %{status: 204} =
       Req.post!(
         url: form.url,
-        form_multipart: form.fields ++ [file: body]
+        form_multipart: form.fields ++ [file: file]
       )
 
     %{status: 200, body: ^body, headers: %{"content-type" => ["text/plain"]}} =

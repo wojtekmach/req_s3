@@ -1,8 +1,9 @@
 defmodule ReqS3.XMLTest do
   use ExUnit.Case, async: true
+  doctest ReqS3.XML
 
-  describe "parse_s3_list_buckets" do
-    test "it works" do
+  describe "parse_s3" do
+    test "ListAllMyBucketsResult" do
       xml = """
       <?xml version="1.0" encoding="UTF-8"?>
       <ListAllMyBucketsResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
@@ -15,28 +16,48 @@ defmodule ReqS3.XMLTest do
             <Name>bucket1</Name>
             <CreationDate>2023-02-21T15:41:58.000Z</CreationDate>
           </Bucket>
+          <Bucket>
+            <Name>bucket2</Name>
+            <CreationDate>2023-02-21T15:41:58.000Z</CreationDate>
+          </Bucket>
         </Buckets>
       </ListAllMyBucketsResult>
       """
 
-      assert ReqS3.XML.parse_s3_list_buckets(xml) == %{
+      assert ReqS3.XML.parse_s3(xml) == %{
                "ListAllMyBucketsResult" => %{
                  "Buckets" => [
-                   %{
-                     "Bucket" => %{
-                       "CreationDate" => "2023-02-21T15:41:58.000Z",
-                       "Name" => "bucket1"
-                     }
-                   }
+                   %{"CreationDate" => "2023-02-21T15:41:58.000Z", "Name" => "bucket1"},
+                   %{"CreationDate" => "2023-02-21T15:41:58.000Z", "Name" => "bucket2"}
                  ],
                  "Owner" => %{"DisplayName" => "owner", "ID" => "7a39"}
                }
              }
     end
-  end
 
-  describe "parse_s3_list_objects" do
-    test "it works" do
+    test "ListAllMyBucketsResult single bucket" do
+      xml = """
+      <?xml version="1.0" encoding="UTF-8"?>
+      <ListAllMyBucketsResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
+        <Buckets>
+          <Bucket>
+            <Name>bucket1</Name>
+            <CreationDate>2023-02-21T15:41:58.000Z</CreationDate>
+          </Bucket>
+        </Buckets>
+      </ListAllMyBucketsResult>
+      """
+
+      assert ReqS3.XML.parse_s3(xml) == %{
+               "ListAllMyBucketsResult" => %{
+                 "Buckets" => [
+                   %{"CreationDate" => "2023-02-21T15:41:58.000Z", "Name" => "bucket1"}
+                 ]
+               }
+             }
+    end
+
+    test "ListBucketResult" do
       xml = """
       <?xml version="1.0" encoding="UTF-8"?>
       <ListBucketResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
@@ -51,6 +72,7 @@ defmodule ReqS3.XMLTest do
           <ETag>&quot;d41d8cd98f00b204e9800998ecf8427e&quot;</ETag>
           <Size>0</Size>
           <StorageClass>STANDARD</StorageClass>
+          <Owner><ID></ID></Owner>
         </Contents>
         <Contents>
           <Key>mnist/t10k-images-idx3-ubyte.gz</Key>
@@ -62,7 +84,7 @@ defmodule ReqS3.XMLTest do
       </ListBucketResult>
       """
 
-      assert ReqS3.XML.parse_s3_list_objects(xml) == %{
+      assert ReqS3.XML.parse_s3(xml) == %{
                "ListBucketResult" => %{
                  "Contents" => [
                    %{
@@ -70,7 +92,8 @@ defmodule ReqS3.XMLTest do
                      "Key" => "mnist/",
                      "LastModified" => "2020-03-04T15:45:17.000Z",
                      "Size" => "0",
-                     "StorageClass" => "STANDARD"
+                     "StorageClass" => "STANDARD",
+                     "Owner" => %{"ID" => nil}
                    },
                    %{
                      "ETag" => "\"9fb629c4189551a2d022fa330f9573f3\"",
@@ -85,6 +108,57 @@ defmodule ReqS3.XMLTest do
                  "MaxKeys" => "1000",
                  "Name" => "ossci-datasets",
                  "Prefix" => nil
+               }
+             }
+    end
+
+    test "ListBucketResult single object" do
+      xml = """
+      <?xml version="1.0" encoding="UTF-8"?>
+      <ListBucketResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
+        <Name>ossci-datasets</Name>
+        <Contents>
+          <Key>mnist/</Key>
+          <ETag>&quot;d41d8cd98f00b204e9800998ecf8427e&quot;</ETag>
+        </Contents>
+      </ListBucketResult>
+      """
+
+      assert ReqS3.XML.parse_s3(xml) == %{
+               "ListBucketResult" => %{
+                 "Contents" => [
+                   %{
+                     "ETag" => "\"d41d8cd98f00b204e9800998ecf8427e\"",
+                     "Key" => "mnist/"
+                   }
+                 ],
+                 "Name" => "ossci-datasets"
+               }
+             }
+    end
+
+    test "ListVersionsResult" do
+      xml = """
+      <?xml version="1.0" encoding="UTF-8"?>
+      <ListVersionsResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
+        <Name>wojtekmach-test</Name>
+        <Prefix></Prefix>
+        <Version><Key>key1</Key><VersionId>null</VersionId><IsLatest>true</IsLatest><LastModified>2024-03-07T15:07:39.000Z</LastModified></Version>
+      </ListVersionsResult>
+      """
+
+      assert ReqS3.XML.parse_s3(xml) == %{
+               "ListVersionsResult" => %{
+                 "Name" => "wojtekmach-test",
+                 "Prefix" => nil,
+                 "Version" => [
+                   %{
+                     "IsLatest" => "true",
+                     "Key" => "key1",
+                     "LastModified" => "2024-03-07T15:07:39.000Z",
+                     "VersionId" => "null"
+                   }
+                 ]
                }
              }
     end
