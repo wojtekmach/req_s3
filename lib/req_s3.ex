@@ -139,15 +139,15 @@ defmodule ReqS3 do
       iex> url
       "https://bucket1.s3.amazonaws.com"
       iex> fields
-      %{
-        "key" => "key1",
-        "policy" => "eyJjb25kaXRpb25z...ifQ==",
-        "x-amz-algorithm" => "AWS4-HMAC-SHA256",
-        "x-amz-credential" => "AKIA.../20240528/us-east-1/s3/aws4_request",
-        "x-amz-date" => "20240528T105226Z",
-        "x-amz-server-side-encryption" => "AES256",
-        "x-amz-signature" => "465315d202fbb2ce081f79fca755a958a18ff68d253e6d2a611ca4b2292d8925"
-      }
+      [
+        {"key", "key1"},
+        {"policy", "eyJjb25kaXRpb25z...ifQ=="},
+        {"x-amz-algorithm", "AWS4-HMAC-SHA256"},
+        {"x-amz-credential", "AKIA.../20240528/us-east-1/s3/aws4_request"},
+        {"x-amz-date", "20240528T105226Z"},
+        {"x-amz-server-side-encryption", "AES256"},
+        {"x-amz-signature", "465315d202fbb2ce081f79fca755a958a18ff68d253e6d2a611ca4b2292d8925"}
+      ]
   """
   def presign_form(options) when is_list(options) do
     # aws_credentials returns this key so let's ignore it
