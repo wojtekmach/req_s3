@@ -1,5 +1,14 @@
 # CHANGELOG
 
+## v0.2.1 (2024-08-01)
+
+  * Add support for `s3://` (list buckets) endpoint.
+
+  * Add support for `s3://{bucket}?versions` (list versions) and similar endpoints.
+
+  * Automatically use `AWS_ENDPOINT_URL_S3`, `AWS_ACCESS_KEY_ID`, and
+    `AWS_SECRET_ACCESS_KEY` system env vars.
+
 ## v0.2.0 (2024-07-18)
 
   * Support Req v0.5.

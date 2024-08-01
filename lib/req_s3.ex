@@ -21,8 +21,18 @@ defmodule ReqS3 do
       request
       |> Map.replace!(:url, url)
       |> Map.update!(:options, fn options ->
-        if options[:aws_sigv4] do
-          put_in(options[:aws_sigv4][:service], :s3)
+        access_key_id =
+          options[:aws_sigv4][:access_key_id] || System.get_env("AWS_ACCESS_KEY_ID")
+
+        secret_access_key =
+          options[:aws_sigv4][:secret_access_key] || System.get_env("AWS_SECRET_ACCESS_KEY")
+
+        if access_key_id do
+          options = Map.put_new(options, :aws_sigv4, [])
+          options = put_in(options[:aws_sigv4][:service], :s3)
+          options = put_in(options[:aws_sigv4][:access_key_id], access_key_id)
+          options = put_in(options[:aws_sigv4][:secret_access_key], secret_access_key)
+          options
         else
           options
         end
@@ -46,49 +56,77 @@ defmodule ReqS3 do
     end
   end
 
-  @doc """
+  @doc ~S"""
   Returns a presigned URL for fetching bucket object contents.
 
   ## Options
 
-    * `:access_key_id` - the AWS access key id.
+    * `:access_key_id` - the AWS access key id. Defaults to the value of `AWS_ACCESS_KEY_ID`
+      system environment variable.
 
-    * `:secret_access_key` - the AWS secret access key.
+    * `:secret_access_key` - the AWS secret access key. Defaults to the value of
+      `AWS_SECRET_ACCESS_KEY` system environment variable.
 
-    * `:region` - if set, AWS region. Defaults to `"us-east-1"`.
+    * `:region` - the AWS region. Defaults to the value of `AWS_REGION` system environment
+      variable, then `"us-east-1"`.
 
-    * `:url` - the URL to presign, for example: `"https://bucket.s3.amazonaws.com"` or `s3://bucket`.
+    * `:url` - the URL to presign, for example: `"https://{bucket}.s3.amazonaws.com/{key}"`,
+      `s3://{bucket}/{key}`, etc. `s3://` URL uses `:endpoint_url` option described below.
 
-       Instead of passing the `:url` option, you can also pass `:bucket` and `:key` options
-       which will generate a `https://{bucket}.s3.amazonaws.com/{key}` url.
+      Instead of passing the `:url` option, you can instead pass `:bucket` and `:key` options
+      which will generate `https://{bucket}.s3.amazonaws.com/{key}` (or
+      `{endpoint_url}/{bucket}/{key}`).
+
+    * `:endpoint_url` - if set, the endpoint URL for S3-compatible services. If
+      `AWS_ENDPOINT_URL_S3` system environment variable is set, it is considered first.
 
   ## Examples
 
-      iex> options = [
-      ...>   access_key_id: System.fetch_env!("AWS_ACCESS_KEY_ID"),
-      ...>   secret_access_key: System.fetch_env!("AWS_SECRET_ACCESS_KEY"),
-      ...> ]
-      iex> req = Req.new() |> ReqS3.attach(aws_sigv4: options)
-      iex> %{status: 200} = Req.put!(req, url: "s3://wojtekmach-test/key1", body: "Hello, World!")
-      iex> url = ReqS3.presign_url([url: "s3://wojtekmach-test/key1"] ++ options)
-      iex> "https://wojtekmach-test.s3.amazonaws.com/key1?X-Amz-Algorithm=AWS4-HMAC" <> _ = url
+  Note: This example assumes `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` environment variables
+  are set.
+
+      iex> req = Req.new() |> ReqS3.attach()
+      iex> bucket = System.fetch_env!("BUCKET_NAME")
+      iex> key = "key1"
+      iex> %{status: 200} = Req.put!(req, url: "s3://#{bucket}/#{key}", body: "Hello, World!")
+      iex> url = ReqS3.presign_url(bucket: bucket, key: key)
+      iex> url =~ "https://#{bucket}.s3.amazonaws.com/#{key}?X-Amz-Algorithm=AWS4-HMAC-SHA256&"
+      true
       iex> %{status: 200, body: body} = Req.get!(url)
       iex> body
       "Hello, World!"
   """
   def presign_url(options) do
     options
+    |> Keyword.put_new_lazy(:access_key_id, fn ->
+      System.get_env("AWS_ACCESS_KEY_ID") ||
+        raise ArgumentError,
+              ":access_key_id option or AWS_ACCESS_KEY_ID environment variable must be set"
+    end)
+    |> Keyword.put_new_lazy(:secret_access_key, fn ->
+      System.get_env("AWS_SECRET_ACCESS_KEY") ||
+        raise ArgumentError,
+              ":secret_access_key option or AWS_SECRET_ACCESS_KEY environment variable must be set"
+    end)
+    |> Keyword.put_new(:region, System.get_env("AWS_REGION", "us-east-1"))
     |> Keyword.put_new(:method, :get)
+    # TODO: deprecate :url in v0.3
     |> Keyword.put_new_lazy(:url, fn ->
       bucket = Keyword.fetch!(options, :bucket)
       key = Keyword.fetch!(options, :key)
-      "https://#{bucket}.s3.amazonaws.com/#{key}"
+
+      endpoint_url = options[:endpoint_url] || System.get_env("AWS_ENDPOINT_URL_S3")
+
+      if endpoint_url do
+        "#{endpoint_url}/#{bucket}/#{key}"
+      else
+        "https://#{bucket}.s3.amazonaws.com/#{key}"
+      end
     end)
-    |> Keyword.update!(:url, &normalize_url/1)
-    |> Keyword.put_new(:region, "us-east-1")
+    |> Keyword.update!(:url, &normalize_url(&1, options[:endpoint_url]))
     |> Keyword.put(:service, "s3")
     |> Keyword.put(:datetime, DateTime.utc_now())
-    |> Keyword.drop([:bucket, :key])
+    |> Keyword.drop([:bucket, :key, :endpoint_url])
     |> Req.Utils.aws_sigv4_url()
     |> URI.to_string()
   end
@@ -98,15 +136,21 @@ defmodule ReqS3 do
 
   ## Options
 
-    * `:access_key_id` - the access key id.
+    * `:access_key_id` - the AWS access key id. Defaults to the value of `AWS_ACCESS_KEY_ID`
+      system environment variable.
 
-    * `:secret_access_key` - the secret access key.
+    * `:secret_access_key` - the AWS secret access key. Defaults to the value of
+      `AWS_SECRET_ACCESS_KEY` system environment variable.
 
-    * `:region` - the S3 region, defaults to `"us-east-1"`.
+    * `:region` - if set, AWS region. Defaults to the value of `AWS_REGION` system environment
+      variable, then `"us-east-1"`.
 
     * `:bucket` - the S3 bucket.
 
     * `:key` - the S3 bucket key.
+
+    * `:endpoint_url` - if set, the endpoint URL for S3-compatible services. If
+      `AWS_ENDPOINT_URL_S3` system environment variable is set, it is considered first.
 
     * `:content_type` - if set, the content-type of the uploaded object.
 
@@ -126,10 +170,10 @@ defmodule ReqS3 do
       ...>   key: "key1",
       ...>   expires_in: :timer.hours(1)
       ...> ]
-      iex> %{url: url, fields: fields} = ReqS3.presign_form(options)
-      iex> url
+      iex> form = ReqS3.presign_form(options)
+      iex> form.url
       "https://bucket1.s3.amazonaws.com"
-      iex> fields
+      iex> form.fields
       [
         {"key", "key1"},
         {"policy", "eyJjb25kaXRpb25z...ifQ=="},
@@ -144,10 +188,34 @@ defmodule ReqS3 do
     # aws_credentials returns this key so let's ignore it
     options = Keyword.drop(options, [:credential_provider])
 
+    Keyword.validate!(
+      options,
+      [
+        :region,
+        :access_key_id,
+        :secret_access_key,
+        :content_type,
+        :max_size,
+        :datetime,
+        :expires_in,
+        :bucket,
+        :key,
+        :endpoint_url
+      ]
+    )
+
     service = "s3"
-    region = Keyword.get(options, :region, "us-east-1")
-    access_key_id = Keyword.fetch!(options, :access_key_id)
-    secret_access_key = Keyword.fetch!(options, :secret_access_key)
+    region = Keyword.get(options, :region, System.get_env("AWS_REGION", "us-east-1"))
+
+    access_key_id =
+      options[:access_key_id] || System.get_env("AWS_ACCESS_KEY_ID") ||
+        raise ArgumentError,
+              ":access_key_id option or AWS_ACCESS_KEY_ID system environment variable must be set"
+
+    secret_access_key =
+      options[:secret_access_key] || System.get_env("AWS_SECRET_ACCESS_KEY") ||
+        raise ArgumentError,
+              ":secret_access_key option or AWS_SECRET_ACCESS_KEY system environment variable must be set"
 
     bucket = Keyword.fetch!(options, :bucket)
     key = Keyword.fetch!(options, :key)
@@ -226,8 +294,17 @@ defmodule ReqS3 do
         fields
       end
 
+    endpoint_url = options[:endpoint_url] || System.get_env("AWS_ENDPOINT_URL_S3")
+
+    url =
+      if endpoint_url do
+        "#{endpoint_url}/#{bucket}"
+      else
+        "https://#{options[:bucket]}.s3.amazonaws.com"
+      end
+
     %{
-      url: "https://#{options[:bucket]}.s3.amazonaws.com",
+      url: url,
       fields: Enum.to_list(fields)
     }
   end
@@ -236,17 +313,20 @@ defmodule ReqS3 do
     presign_form(Enum.into(options, []))
   end
 
-  defp normalize_url(string) when is_binary(string) do
-    normalize_url(URI.new!(string))
+  defp normalize_url(string, endpoint_url \\ nil)
+
+  defp normalize_url(string, endpoint_url) when is_binary(string) do
+    normalize_url(URI.new!(string), endpoint_url)
   end
 
-  defp normalize_url(%URI{scheme: "s3"} = url) do
+  defp normalize_url(%URI{scheme: "s3"} = url, endpoint_url) do
     url = %{url | scheme: "https", port: 443}
+    endpoint_url = endpoint_url || System.get_env("AWS_ENDPOINT_URL_S3")
 
     case String.split(url.host, ".") do
       _ when url.host == "" ->
         url =
-          if endpoint_url = System.get_env("AWS_ENDPOINT_URL_S3") do
+          if endpoint_url do
             host = URI.new!(endpoint_url).host
             %{url | host: host, authority: nil}
           else
@@ -258,7 +338,7 @@ defmodule ReqS3 do
 
       [bucket] ->
         url =
-          if endpoint_url = System.get_env("AWS_ENDPOINT_URL_S3") do
+          if endpoint_url do
             host = URI.new!(endpoint_url).host
             %{url | host: host, authority: nil, path: "/#{bucket}#{url.path}"}
           else
@@ -274,7 +354,7 @@ defmodule ReqS3 do
     end
   end
 
-  defp normalize_url(%URI{} = url) do
+  defp normalize_url(%URI{} = url, _endpoint_url) do
     url
   end
 
