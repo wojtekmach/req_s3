@@ -1,6 +1,11 @@
 defmodule ReqS3.XML do
   @moduledoc false
 
+  if System.otp_release() < "25" do
+    # xmerl_sax_parser :disallow_entities requires OTP 25+
+    raise "req_s3 requires OTP 25+"
+  end
+
   @list_fields [
     {"ListBucketResult", "Contents"},
     {"ListVersionsResult", "Version"}
