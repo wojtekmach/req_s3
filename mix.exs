@@ -25,6 +25,7 @@ defmodule ReqS3.MixProject do
         licenses: ["Apache-2.0"],
         links: %{
           "GitHub" => "https://github.com/wojtekmach/req_s3"
+          "Changelog" => "https://hexdocs.pm/req_s3/changelog.html"
         }
       ]
     ]
