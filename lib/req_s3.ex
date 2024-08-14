@@ -10,13 +10,14 @@ defmodule ReqS3 do
   """
   def attach(request, options \\ []) do
     request
+    |> Req.Request.register_options([:aws_endpoint_url_s3])
     |> add_request_steps_before([s3_handle_url: &handle_s3_url/1], :put_aws_sigv4)
     |> Req.merge(options)
   end
 
   defp handle_s3_url(request) do
     if request.url.scheme == "s3" do
-      url = normalize_url(request.url)
+      url = normalize_url(request.url, request.options[:aws_endpoint_url_s3])
 
       request
       |> Map.replace!(:url, url)
@@ -312,8 +313,6 @@ defmodule ReqS3 do
   def presign_form(options) do
     presign_form(Enum.into(options, []))
   end
-
-  defp normalize_url(string, endpoint_url \\ nil)
 
   defp normalize_url(string, endpoint_url) when is_binary(string) do
     normalize_url(URI.new!(string), endpoint_url)
