@@ -11,11 +11,23 @@ defmodule ReqS3 do
   def attach(request, options \\ []) do
     request
     |> Req.Request.register_options([:aws_endpoint_url_s3])
-    |> add_request_steps_before([s3_handle_url: &handle_s3_url/1], :put_aws_sigv4)
+    |> add_request_steps_before([s3_handle_url: &__MODULE__.handle_s3_url/1], :put_aws_sigv4)
     |> Req.merge(options)
   end
 
-  defp handle_s3_url(request) do
+  @doc """
+  Handles the `s3://` URL scheme.
+
+  This request step is automatically added on `ReqS3.attach(request)`.
+
+  See module documentation for usage examples.
+
+  ## Request Options
+
+    * `:aws_endpoint_url_s3` - if set, the endpoint URL for S3-compatible services.
+      If `AWS_ENDPOINT_URL_S3` system environment variable is set, it is considered first.
+  """
+  def handle_s3_url(request) do
     if request.url.scheme == "s3" do
       url = normalize_url(request.url, request.options[:aws_endpoint_url_s3])
 
