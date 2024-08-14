@@ -338,8 +338,15 @@ defmodule ReqS3 do
       _ when url.host == "" ->
         url =
           if endpoint_url do
-            host = URI.new!(endpoint_url).host
-            %{url | host: host, authority: nil}
+            endpoint_url = URI.new!(endpoint_url)
+
+            %{
+              url
+              | scheme: endpoint_url.scheme,
+                host: endpoint_url.host,
+                authority: nil,
+                port: endpoint_url.port
+            }
           else
             host = "s3.amazonaws.com"
             %{url | host: host, authority: nil, path: "/"}
@@ -350,8 +357,16 @@ defmodule ReqS3 do
       [bucket] ->
         url =
           if endpoint_url do
-            host = URI.new!(endpoint_url).host
-            %{url | host: host, authority: nil, path: "/#{bucket}#{url.path}"}
+            endpoint_url = URI.new!(endpoint_url)
+
+            %{
+              url
+              | scheme: endpoint_url.scheme,
+                host: endpoint_url.host,
+                authority: nil,
+                port: endpoint_url.port,
+                path: "/#{bucket}#{url.path}"
+            }
           else
             host = "#{bucket}.s3.amazonaws.com"
             %{url | host: host, authority: nil}
