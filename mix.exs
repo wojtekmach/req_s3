@@ -24,7 +24,7 @@ defmodule ReqS3.MixProject do
         description: "Req plugin for S3.",
         licenses: ["Apache-2.0"],
         links: %{
-          "GitHub" => "https://github.com/wojtekmach/req_s3"
+          "GitHub" => "https://github.com/wojtekmach/req_s3",
           "Changelog" => "https://hexdocs.pm/req_s3/changelog.html"
         }
       ]
