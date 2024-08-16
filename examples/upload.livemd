@@ -1,0 +1,115 @@
+# S3 Direct Upload
+
+```elixir
+Mix.install([
+  {:phoenix_playground, "~> 0.1.5"},
+  {:phoenix_live_view, "~> 1.0.0-rc", override: true},
+  {:req_s3, "~> 0.2.2"}
+])
+```
+
+## Section
+
+```elixir
+# Access system env in separate cell so Livebook can offer to use secrets.
+
+Application.put_env(:demo, :s3_config,
+  access_key_id: System.fetch_env!("LB_AWS_ACCESS_KEY_ID"),
+  secret_access_key: System.fetch_env!("LB_AWS_SECRET_ACCESS_KEY"),
+  endpoint_url: System.get_env("LB_AWS_ENDPOINT_URL_S3"),
+  bucket: System.fetch_env!("LB_BUCKET_NAME")
+)
+```
+
+```elixir
+# Direct to S3 uploads using Phoenix Playground and ReqS3
+#
+# Set BUCKET_NAME, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY (and optionally AWS_ENDPOINT_URL_S3).
+#
+# Based on https://hexdocs.pm/phoenix_live_view/uploads-external.html#direct-to-s3
+
+defmodule DemoLive do
+  use Phoenix.LiveView
+
+  @impl true
+  def mount(_params, _session, socket) do
+    {:ok,
+     socket
+     |> assign(:s3_config, Application.get_env(:demo, :s3_config))
+     |> allow_upload(:photo,
+       accept: ~w[.png .jpeg .jpg],
+       max_entries: 1,
+       auto_upload: true,
+       external: &presign_upload/2
+     )}
+  end
+
+  @impl true
+  def render(assigns) do
+    ~H"""
+    <form id="upload-form" phx-change="validate">
+      <.live_file_input upload={@uploads.photo} />
+    </form>
+
+    <div phx-drop-target={@uploads.photo.ref} style="width: 20em; height: 10em; margin-top: 0.5em; padding: 1em; border: 1px dashed">
+      <div :for={entry <- @uploads.photo.entries}>
+        <.live_img_preview entry={entry} height="120" />
+        <div><%= entry.progress %>%</div>
+        <.link :if={entry.done?} href={presign_url(entry, @s3_config)}>Uploaded</.link>
+      </div>
+    </div>
+
+    <script type="text/javascript">
+      window.uploaders.S3 = function(entries, onViewError) {
+        entries.forEach(entry => {
+          let formData = new FormData()
+          let {url, fields} = entry.meta
+          Object.entries(fields).forEach(([key, val]) => formData.append(key, val))
+          formData.append("file", entry.file)
+          let xhr = new XMLHttpRequest()
+          onViewError(() => xhr.abort())
+          xhr.onload = () => xhr.status === 204 ? entry.progress(100) : entry.error()
+          xhr.onerror = () => entry.error()
+          xhr.upload.addEventListener("progress", (event) => {
+            if (event.lengthComputable) {
+              let percent = Math.round((event.loaded / event.total) * 100)
+              if (percent < 100) { entry.progress(percent) }
+            }
+          })
+          xhr.open("POST", url, true)
+          xhr.send(formData)
+        })
+      }
+    </script>
+
+    <style type="text/css">
+      body { padding: 1em; }
+    </style>
+    """
+  end
+
+  @impl true
+  def handle_event("validate", _params, socket) do
+    {:noreply, socket}
+  end
+
+  defp presign_upload(entry, socket) do
+    s3_options = s3_options(entry, socket.assigns.s3_config)
+    form = ReqS3.presign_form([content_type: entry.client_type] ++ s3_options)
+    meta = %{uploader: "S3", key: s3_options[:key], url: form.url, fields: Map.new(form.fields)}
+    {:ok, meta, socket}
+  end
+
+  defp presign_url(entry, config) do
+    ReqS3.presign_url(s3_options(entry, config))
+  end
+
+  defp s3_options(entry, config) do
+    [key: "uploads/#{entry.client_name}"] ++ config
+  end
+end
+
+PhoenixPlayground.start(live: DemoLive)
+```
+
+<!-- livebook:{"offset":3358,"stamp":{"token":"XCP.4LhWc_U9Vgxo7WTGfCGjl5sa7RHEktmgqtKPEn1bSfw5jQ6lTkC2g7zt7hEYv1TwcMx1EbflRIH3JGUVMcLaJhpLIOXXO80XlOI-BVEk-VTLMy3C_Zvv3SEqgzMCcR1IOSZBE36QCpmmsV6lz7uudoNQFQxxpKvCG6U0Bx42qCd8MLJIzCw","version":2}} -->

@@ -1,0 +1,31 @@
+# ReqS3 - MNIST
+
+```elixir
+Mix.install([
+  {:req_s3, "~> 0.2.2"}
+])
+```
+
+## Setup
+
+```elixir
+req =
+  Req.new()
+  |> ReqS3.attach()
+```
+
+## List Objects
+
+```elixir
+%{status: 200, body: body} = Req.get!(req, url: "s3://ossci-datasets")
+body["ListBucketResult"]["Contents"]
+```
+
+## Get Object
+
+```elixir
+%{status: 200, body: body} = Req.get!(req, url: "s3://ossci-datasets/mnist/t10k-images-idx3-ubyte.gz")
+body
+```
+
+<!-- livebook:{"offset":413,"stamp":{"token":"XCP.QgVkGB6x4erd_N-8TZ_OLZU39z-GACuy1GX3uml2dJybfVrX11rhNP8h4B9gMI9nsVJnewneitFTj3ksOfm3lH2J2HE-PeJrgdXjMAAyYzAyi6y8Q6SW3fPt9c47XCi_FT_6LlmO0mpXEz02dTcpRlinvZS1eA4rTImeacMkgpwcSgWUFdE","version":2}} -->
