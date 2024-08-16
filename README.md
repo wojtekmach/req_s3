@@ -32,7 +32,7 @@ The responses for listing buckets and objects are automatically decoded.
 ```elixir
 Mix.install([
   {:req, "~> 0.5.0"},
-  {:req_s3, "~> 0.2.0"}
+  {:req_s3, "~> 0.2.3"}
 ])
 
 req = Req.new() |> ReqS3.attach()
@@ -56,6 +56,12 @@ body = Req.get!(req, url: "s3://ossci-datasets/mnist/t10k-images-idx3-ubyte.gz")
 {n_images, n_rows, n_cols}
 #=> {10_000, 28, 28}
 ```
+
+## Examples
+
+  * [MNIST](examples/mnist.livemd)
+
+  * [S3 Direct Upload](examples/upload.livemd)
 
 ### Pre-signing
 
@@ -100,10 +106,6 @@ ReqS3 supports the following standardised system environment variables:
   * `AWS_ENDPOINT_URL_S3`
 
 <!-- MDOC !-->
-
-## TODO
-
-  * Add Phoenix Playground example.
 
 ## License
 

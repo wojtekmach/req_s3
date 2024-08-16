@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## v0.2.3
+
+  * Use scheme and port from `endpoint_url`.
+
 ## v0.2.2 (2024-08-14)
 
   * Add `:aws_endpoint_url_s3` option.

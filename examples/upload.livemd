@@ -4,11 +4,11 @@
 Mix.install([
   {:phoenix_playground, "~> 0.1.5"},
   {:phoenix_live_view, "~> 1.0.0-rc", override: true},
-  {:req_s3, "~> 0.2.2"}
+  {:req_s3, "~> 0.2.3"}
 ])
 ```
 
-## Section
+## Config
 
 ```elixir
 # Access system env in separate cell so Livebook can offer to use secrets.
@@ -20,6 +20,8 @@ Application.put_env(:demo, :s3_config,
   bucket: System.fetch_env!("LB_BUCKET_NAME")
 )
 ```
+
+## Playground
 
 ```elixir
 # Direct to S3 uploads using Phoenix Playground and ReqS3

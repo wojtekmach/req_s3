@@ -4,7 +4,7 @@ defmodule ReqS3.MixProject do
   def project do
     [
       app: :req_s3,
-      version: "0.2.2",
+      version: "0.2.3",
       elixir: "~> 1.15",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
@@ -18,7 +18,7 @@ defmodule ReqS3.MixProject do
       ],
       docs: [
         main: "readme",
-        extras: ["README.md", "CHANGELOG.md"]
+        extras: ["README.md", "CHANGELOG.md", "examples/mnist.livemd", "examples/upload.livemd"]
       ],
       package: [
         description: "Req plugin for S3.",
