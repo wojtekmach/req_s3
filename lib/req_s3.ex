@@ -193,7 +193,6 @@ defmodule ReqS3 do
         {"x-amz-algorithm", "AWS4-HMAC-SHA256"},
         {"x-amz-credential", "AKIA.../20240528/us-east-1/s3/aws4_request"},
         {"x-amz-date", "20240528T105226Z"},
-        {"x-amz-server-side-encryption", "AES256"},
         {"x-amz-signature", "465315d202fbb2ce081f79fca755a958a18ff68d253e6d2a611ca4b2292d8925"}
       ]
   """
@@ -245,7 +244,6 @@ defmodule ReqS3 do
     credential = "#{access_key_id}/#{date_string}/#{region}/#{service}/aws4_request"
 
     amz_headers = [
-      {"x-amz-server-side-encryption", "AES256"},
       {"x-amz-credential", credential},
       {"x-amz-algorithm", "AWS4-HMAC-SHA256"},
       {"x-amz-date", datetime_string}

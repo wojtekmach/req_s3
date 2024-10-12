@@ -87,7 +87,7 @@ and form uploads:
 
 ```elixir
 form = ReqS3.presign_form([bucket: "bucket1", key: "key1"] ++ options)
-%{status: 204} = Req.post!(form.url, form_multipart: [file: "Hello, World!"] ++ form.fields)
+%{status: 204} = Req.post!(form.url, form_multipart: form.fields ++ [file: "Hello, World!"])
 
 Req.get!(presigned_url).body
 #=> "Hello, World!"
