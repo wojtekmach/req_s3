@@ -149,6 +149,17 @@ defmodule ReqS3Test do
              ReqS3.presign_url(options)
   end
 
+  test "presign_url/1 encode path" do
+    options = [
+      url: "s3://wojtekmach-test/hello world.txt",
+      access_key_id: "foo",
+      secret_access_key: "bar"
+    ]
+
+    assert "https://wojtekmach-test.s3.amazonaws.com/hello%20world.txt?X-Amz-Algorithm=AWS4-HMAC-SHA256&" <>
+             _ = ReqS3.presign_url(options)
+  end
+
   test "presign_url/1 upload" do
     url = ReqS3.presign_url(url: "s3://wojtekmach-test/foo", method: :put)
     body = "hi#{Time.utc_now()}"
