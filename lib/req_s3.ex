@@ -327,7 +327,7 @@ defmodule ReqS3 do
   end
 
   defp normalize_url(string, endpoint_url) when is_binary(string) do
-    normalize_url(URI.new!(string), endpoint_url)
+    normalize_url(URI.parse(string), endpoint_url)
   end
 
   defp normalize_url(%URI{scheme: "s3"} = url, endpoint_url) do
