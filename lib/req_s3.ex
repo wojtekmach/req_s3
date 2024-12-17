@@ -174,6 +174,8 @@ defmodule ReqS3 do
 
     * `:datetime` - the request datetime, defaults to `DateTime.utc_now(:second)`.
 
+    * `:encryption` - the server-side encryption algorithm. Defaults to `"AES256"`. Set to `nil` to skip.
+
   ## Examples
 
       iex> options = [
@@ -213,7 +215,8 @@ defmodule ReqS3 do
         :expires_in,
         :bucket,
         :key,
-        :endpoint_url
+        :endpoint_url,
+        :encryption
       ]
     )
 
@@ -244,12 +247,19 @@ defmodule ReqS3 do
 
     credential = "#{access_key_id}/#{date_string}/#{region}/#{service}/aws4_request"
 
-    amz_headers = [
-      {"x-amz-server-side-encryption", "AES256"},
-      {"x-amz-credential", credential},
-      {"x-amz-algorithm", "AWS4-HMAC-SHA256"},
-      {"x-amz-date", datetime_string}
-    ]
+    encryption_headers =
+      case Keyword.get(options, :encryption, "AES256") do
+        nil -> []
+        # we don't support KMS and others for now
+        "AES256" -> [{"x-amz-server-side-encryption", "AES256"}]
+      end
+
+    amz_headers =
+      [
+        {"x-amz-credential", credential},
+        {"x-amz-algorithm", "AWS4-HMAC-SHA256"},
+        {"x-amz-date", datetime_string}
+      ] ++ encryption_headers
 
     content_type_conditions =
       if content_type do
