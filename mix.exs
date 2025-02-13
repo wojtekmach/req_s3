@@ -11,11 +11,6 @@ defmodule ReqS3.MixProject do
       aliases: [
         "test.all": ["test --include integration"]
       ],
-      preferred_cli_env: [
-        "test.all": :test,
-        docs: :docs,
-        "hex.publish": :docs
-      ],
       docs: [
         main: "readme",
         extras: ["README.md", "CHANGELOG.md", "examples/mnist.livemd", "examples/upload.livemd"]
@@ -34,6 +29,16 @@ defmodule ReqS3.MixProject do
   def application do
     [
       extra_applications: [:logger, :xmerl]
+    ]
+  end
+
+  def cli do
+    [
+      preferred_envs: [
+        "test.all": :test,
+        docs: :docs,
+        "hex.publish": :docs
+      ]
     ]
   end
 
