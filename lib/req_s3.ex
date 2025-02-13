@@ -11,8 +11,29 @@ defmodule ReqS3 do
   def attach(request, options \\ []) do
     request
     |> Req.Request.register_options([:aws_endpoint_url_s3])
+    |> Req.Request.register_options([:s3_accelerate])
     |> add_request_steps_before([s3_handle_url: &__MODULE__.handle_s3_url/1], :put_aws_sigv4)
     |> Req.merge(options)
+    |> add_request_steps_before(
+      [use_acceleration: &__MODULE__.use_acceleration/1],
+      :put_aws_sigv4
+    )
+  end
+
+  def use_acceleration(request) do
+    if request.options[:s3_accelerate] do
+      host =
+        String.replace_suffix(
+          request.url.host,
+          ".s3.amazonaws.com",
+          ".s3-accelerate.amazonaws.com"
+        )
+
+      url = %{request.url | host: host}
+      %{request | url: url}
+    else
+      request
+    end
   end
 
   @doc """
