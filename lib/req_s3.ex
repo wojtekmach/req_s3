@@ -242,7 +242,8 @@ defmodule ReqS3 do
         :expires_in,
         :bucket,
         :key,
-        :endpoint_url
+        :endpoint_url,
+        :s3_accelerate
       ]
     )
 
@@ -337,12 +338,18 @@ defmodule ReqS3 do
       end
 
     endpoint_url = options[:endpoint_url] || System.get_env("AWS_ENDPOINT_URL_S3")
+    s3_accelerate = options[:s3_accelerate]
 
     url =
-      if endpoint_url do
-        "#{endpoint_url}/#{bucket}"
-      else
-        "https://#{options[:bucket]}.s3.amazonaws.com"
+      cond do
+        endpoint_url ->
+          "#{endpoint_url}/#{bucket}"
+
+        s3_accelerate ->
+          "https://#{options[:bucket]}.s3-accelerate.amazonaws.com"
+
+        true ->
+          "https://#{options[:bucket]}.s3.amazonaws.com"
       end
 
     %{
