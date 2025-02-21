@@ -196,6 +196,11 @@ defmodule ReqS3 do
         {"x-amz-server-side-encryption", "AES256"},
         {"x-amz-signature", "465315d202fbb2ce081f79fca755a958a18ff68d253e6d2a611ca4b2292d8925"}
       ]
+      iex> Req.post!(form.url, form_multipart: form.fields ++ [{"file", "test"}])
+      iex> Req.get!("https://bucket1.s3.amazonaws.com/key1").body
+      "test"
+
+  See `Req.Steps.encode_body/1` for more information on multipart uploads.
   """
   def presign_form(options) when is_list(options) do
     # aws_credentials returns this key so let's ignore it
