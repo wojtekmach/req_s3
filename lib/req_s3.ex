@@ -374,6 +374,29 @@ defmodule ReqS3 do
 
         url
 
+      [_ | _]  ->
+        # bucket has dots in it
+        bucket = url.host
+
+        url =
+          if endpoint_url do
+            endpoint_url = URI.new!(endpoint_url)
+
+            %{
+              url
+              | scheme: endpoint_url.scheme,
+                host: endpoint_url.host,
+                authority: nil,
+                port: endpoint_url.port,
+                path: "/#{bucket}#{url.path}"
+            }
+          else
+            host = "s3.amazonaws.com"
+            %{url | host: host, authority: nil, path: "/#{bucket}#{url.path}"}
+          end
+
+        url
+
       # leave e.g. s3.amazonaws.com as is
       _ ->
         url
