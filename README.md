@@ -63,6 +63,15 @@ body = Req.get!(req, url: "s3://ossci-datasets/mnist/t10k-images-idx3-ubyte.gz")
 
   * [S3 Direct Upload](examples/upload.livemd)
 
+  * [MINIO](examples/minio.exs)
+
+```sh
+$ docker run -p 9000:9000 \
+   -e MINIO_ROOT_USER=minio \
+   -e MINIO_ROOT_PASSWORD=minio123 \
+   minio/minio server /data
+```
+
 ### Pre-signing
 
 ReqS3 can be used to presign URLs:
