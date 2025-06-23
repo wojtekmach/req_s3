@@ -83,6 +83,8 @@ defmodule ReqS3 do
     * `:region` - the AWS region. Defaults to the value of `AWS_REGION` system environment
       variable, then `"us-east-1"`.
 
+    * `:method` - the HTTP method, defaults to `:get`.
+
     * `:url` - the URL to presign, for example: `"https://{bucket}.s3.amazonaws.com/{key}"`,
       `s3://{bucket}/{key}`, etc. `s3://` URL uses `:endpoint_url` option described below.
 
