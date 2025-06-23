@@ -60,21 +60,14 @@ defmodule ReqS3Test do
   end
 
   @tag :integration
-  test "list versions" do
-    bucket = System.fetch_env!("BUCKET_NAME")
-
+  test "list objects with bucket with period in name" do
     req =
       Req.new()
       |> ReqS3.attach()
 
-    body = Req.get!(req, url: "s3://#{bucket}?versions").body
-
-    assert %{
-             "ListVersionsResult" => %{
-               "Name" => ^bucket,
-               "Version" => [%{"Key" => _, "VersionId" => _} | _]
-             }
-           } = body
+    %{status: 200} = Req.put!(req, url: "s3://wojtekmach.test")
+    %{status: 200} = Req.put!(req, url: "s3://wojtekmach.test/1", body: "1")
+    %{status: 200, body: "1"} = Req.get!(req, url: "s3://wojtekmach.test/1")
   end
 
   @tag :integration
@@ -103,6 +96,24 @@ defmodule ReqS3Test do
     else
       System.delete_env("AWS_ENDPOINT_URL_S3")
     end
+  end
+
+  @tag :integration
+  test "list versions" do
+    bucket = System.fetch_env!("BUCKET_NAME")
+
+    req =
+      Req.new()
+      |> ReqS3.attach()
+
+    body = Req.get!(req, url: "s3://#{bucket}?versions").body
+
+    assert %{
+             "ListVersionsResult" => %{
+               "Name" => ^bucket,
+               "Version" => [%{"Key" => _, "VersionId" => _} | _]
+             }
+           } = body
   end
 
   describe "aws_sigv4" do
