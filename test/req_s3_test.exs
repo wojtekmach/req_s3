@@ -215,6 +215,18 @@ defmodule ReqS3Test do
     end
   end
 
+  test "presing_url/1 with s3 transefer accelerator" do
+    assert "https://bucket.s3-accelerate.amazonaws.com/key.ext?X-Amz-Algorithm=AWS4-HMAC-SHA256&" <>
+             _ =
+             ReqS3.presign_url(
+               bucket: "bucket",
+               key: "key.ext",
+               s3_accelerate: true,
+               access_key_id: "",
+               secret_access_key: ""
+             )
+  end
+
   @tag :tmp_dir
   test "presign_form/1", %{tmp_dir: tmp_dir} do
     bucket = System.fetch_env!("BUCKET_NAME")

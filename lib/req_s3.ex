@@ -11,8 +11,29 @@ defmodule ReqS3 do
   def attach(request, options \\ []) do
     request
     |> Req.Request.register_options([:aws_endpoint_url_s3])
+    |> Req.Request.register_options([:s3_accelerate])
     |> add_request_steps_before([s3_handle_url: &__MODULE__.handle_s3_url/1], :put_aws_sigv4)
     |> Req.merge(options)
+    |> add_request_steps_before(
+      [use_acceleration: &__MODULE__.use_acceleration/1],
+      :put_aws_sigv4
+    )
+  end
+
+  def use_acceleration(request) do
+    if request.options[:s3_accelerate] do
+      host =
+        String.replace_suffix(
+          request.url.host,
+          ".s3.amazonaws.com",
+          ".s3-accelerate.amazonaws.com"
+        )
+
+      url = %{request.url | host: host}
+      %{request | url: url}
+    else
+      request
+    end
   end
 
   @doc """
@@ -95,6 +116,8 @@ defmodule ReqS3 do
     * `:endpoint_url` - if set, the endpoint URL for S3-compatible services. If
       `AWS_ENDPOINT_URL_S3` system environment variable is set, it is considered first.
 
+    * `:s3_accelerate` - if set, use the S3 Accelerate endpoint.
+
   ## Examples
 
   Note: This example assumes `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` environment variables
@@ -131,17 +154,23 @@ defmodule ReqS3 do
       key = Keyword.fetch!(options, :key)
 
       endpoint_url = options[:endpoint_url] || System.get_env("AWS_ENDPOINT_URL_S3")
+      s3_accelerate = options[:s3_accelerate]
 
-      if endpoint_url do
-        "#{endpoint_url}/#{bucket}/#{key}"
-      else
-        "https://#{bucket}.s3.amazonaws.com/#{key}"
+      cond do
+        endpoint_url ->
+          "#{endpoint_url}/#{bucket}/#{key}"
+
+        s3_accelerate ->
+          "https://#{bucket}.s3-accelerate.amazonaws.com/#{key}"
+
+        true ->
+          "https://#{bucket}.s3.amazonaws.com/#{key}"
       end
     end)
     |> Keyword.update!(:url, &normalize_url(&1, options[:endpoint_url]))
     |> Keyword.put(:service, "s3")
     |> Keyword.put(:datetime, DateTime.utc_now())
-    |> Keyword.drop([:bucket, :key, :endpoint_url])
+    |> Keyword.drop([:bucket, :key, :endpoint_url, :s3_accelerate])
     |> Req.Utils.aws_sigv4_url()
     |> URI.to_string()
   end
@@ -220,7 +249,8 @@ defmodule ReqS3 do
         :expires_in,
         :bucket,
         :key,
-        :endpoint_url
+        :endpoint_url,
+        :s3_accelerate
       ]
     )
 
@@ -315,12 +345,18 @@ defmodule ReqS3 do
       end
 
     endpoint_url = options[:endpoint_url] || System.get_env("AWS_ENDPOINT_URL_S3")
+    s3_accelerate = options[:s3_accelerate]
 
     url =
-      if endpoint_url do
-        "#{endpoint_url}/#{bucket}"
-      else
-        "https://#{options[:bucket]}.s3.amazonaws.com"
+      cond do
+        endpoint_url ->
+          "#{endpoint_url}/#{bucket}"
+
+        s3_accelerate ->
+          "https://#{options[:bucket]}.s3-accelerate.amazonaws.com"
+
+        true ->
+          "https://#{options[:bucket]}.s3.amazonaws.com"
       end
 
     %{
