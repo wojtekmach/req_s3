@@ -337,81 +337,35 @@ defmodule ReqS3 do
     normalize_url(URI.parse(string), endpoint_url)
   end
 
-  defp normalize_url(%URI{scheme: "s3"} = url, endpoint_url) do
-    url = %{url | scheme: "https", port: 443}
-    endpoint_url = endpoint_url || System.get_env("AWS_ENDPOINT_URL_S3")
+  defp normalize_url(%URI{scheme: "s3", host: bucket} = s3_uri, endpoint_url) do
+    endpoint_uri = %{normalize_endpoint_url(endpoint_url) | query: s3_uri.query}
 
-    case String.split(url.host, ".") do
-      _ when url.host == "" ->
-        url =
-          if endpoint_url do
-            endpoint_url = URI.new!(endpoint_url)
-
-            %{
-              url
-              | scheme: endpoint_url.scheme,
-                host: endpoint_url.host,
-                authority: nil,
-                port: endpoint_url.port
-            }
-          else
-            host = "s3.amazonaws.com"
-            %{url | host: host, authority: nil, path: "/"}
-          end
-
-        url
-
-      [bucket] ->
-        url =
-          if endpoint_url do
-            endpoint_url = URI.new!(endpoint_url)
-
-            %{
-              url
-              | scheme: endpoint_url.scheme,
-                host: endpoint_url.host,
-                authority: nil,
-                port: endpoint_url.port,
-                path: "/#{bucket}#{url.path}"
-            }
-          else
-            host = "#{bucket}.s3.amazonaws.com"
-            %{url | host: host, authority: nil}
-          end
-
-        url
-
-      [_ | _]  ->
-        # bucket has dots in it
-        bucket = url.host
-
-        url =
-          if endpoint_url do
-            endpoint_url = URI.new!(endpoint_url)
-
-            %{
-              url
-              | scheme: endpoint_url.scheme,
-                host: endpoint_url.host,
-                authority: nil,
-                port: endpoint_url.port,
-                path: "/#{bucket}#{url.path}"
-            }
-          else
-            host = "s3.amazonaws.com"
-            %{url | host: host, authority: nil, path: "/#{bucket}#{url.path}"}
-          end
-
-        url
-
-      # leave e.g. s3.amazonaws.com as is
-      _ ->
-        url
+    # Special case for AWS S3 which prefers VHost-style URLS
+    if String.ends_with?(endpoint_uri.host, "s3.amazonaws.com") do
+      if bucket == "" do
+        endpoint_uri
+      else
+        %{endpoint_uri | host: "#{bucket}.#{endpoint_uri.host}", path: s3_uri.path}
+      end
+    else
+      %{endpoint_uri | path: endpoint_uri.path <> bucket <> (s3_uri.path || "")}
     end
   end
 
   defp normalize_url(%URI{} = url, _endpoint_url) do
     url
+  end
+
+  defp normalize_endpoint_url(endpoint_url) do
+    endpoint_uri =
+      URI.new!(
+        endpoint_url ||
+          System.get_env("AWS_ENDPOINT_URL_S3", "https://s3.amazonaws.com")
+      )
+
+    # Ensure the path ends with a slash
+    endpoint_path = String.trim_trailing(endpoint_uri.path || "", "/") <> "/"
+    %{endpoint_uri | path: endpoint_path}
   end
 
   # TODO: Req.add_request_steps(req, steps, before: step)
