@@ -340,10 +340,15 @@ defmodule ReqS3 do
   defp normalize_url(%URI{scheme: "s3", host: bucket} = s3_uri, endpoint_url) do
     endpoint_uri = %{normalize_endpoint_url(endpoint_url) | query: s3_uri.query}
 
-    if bucket != "" do
-      %{endpoint_uri | path: endpoint_uri.path <> bucket <> (s3_uri.path || "")}
+    # Special case for AWS S3 which prefers VHost-style URLS
+    if String.ends_with?(endpoint_uri.host, "s3.amazonaws.com") do
+      if bucket == "" do
+        endpoint_uri
+      else
+        %{endpoint_uri | host: "#{bucket}.#{endpoint_uri.host}", path: s3_uri.path}
+      end
     else
-      endpoint_uri
+      %{endpoint_uri | path: endpoint_uri.path <> bucket <> (s3_uri.path || "")}
     end
   end
 
