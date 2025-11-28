@@ -140,7 +140,7 @@ defmodule ReqS3 do
     end)
     |> Keyword.update!(:url, &normalize_url(&1, options[:endpoint_url]))
     |> Keyword.put(:service, "s3")
-    |> Keyword.put(:datetime, DateTime.utc_now())
+    |> Keyword.put_new(:datetime, DateTime.utc_now())
     |> Keyword.drop([:bucket, :key, :endpoint_url])
     |> Req.Utils.aws_sigv4_url()
     |> URI.to_string()
