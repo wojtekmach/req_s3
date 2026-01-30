@@ -95,6 +95,8 @@ defmodule ReqS3 do
     * `:endpoint_url` - if set, the endpoint URL for S3-compatible services. If
       `AWS_ENDPOINT_URL_S3` system environment variable is set, it is considered first.
 
+    * `:expires` - the number of seconds after which the URL should expire
+
   ## Examples
 
   Note: This example assumes `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` environment variables
