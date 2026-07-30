@@ -420,9 +420,18 @@ defmodule ReqS3 do
 
   # TODO: Req.add_request_steps(req, steps, before: step)
   defp add_request_steps_before(request, steps, before_step_name) do
-    request
-    |> Map.update!(:request_steps, &prepend_steps(&1, steps, before_step_name))
-    |> Map.update!(:current_request_steps, &prepend_current_steps(&1, steps, before_step_name))
+    request = Map.update!(request, :request_steps, &prepend_steps(&1, steps, before_step_name))
+
+    # Req 0.7 removed :current_request_steps; keep updating it on older versions.
+    if Map.has_key?(request, :current_request_steps) do
+      Map.update!(
+        request,
+        :current_request_steps,
+        &prepend_current_steps(&1, steps, before_step_name)
+      )
+    else
+      request
+    end
   end
 
   defp prepend_steps([{before_step_name, _} | _] = rest, steps, before_step_name) do

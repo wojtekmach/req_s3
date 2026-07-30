@@ -1,7 +1,6 @@
 defmodule ReqS3Test do
   use ExUnit.Case, async: true
 
-  @moduletag :integration
   doctest ReqS3, tags: [:integration], only: [presign_url: 1]
 
   if System.get_env("REQ_AWS_ACCESS_KEY_ID") do
@@ -28,6 +27,30 @@ defmodule ReqS3Test do
     :ok
   end
 
+  describe "attach/1" do
+    test "inserts s3_handle_url request step before put_aws_sigv4" do
+      req = Req.new() |> ReqS3.attach()
+
+      step_names = Keyword.keys(req.request_steps)
+      assert :s3_handle_url in step_names
+
+      assert Enum.find_index(step_names, &(&1 == :s3_handle_url)) <
+               Enum.find_index(step_names, &(&1 == :put_aws_sigv4))
+    end
+
+    test "converts s3:// URLs when preparing the request" do
+      req =
+        Req.new(url: "s3://my-bucket/path/to/object.json")
+        |> ReqS3.attach()
+        |> Req.Request.prepare()
+
+      assert req.url.scheme == "https"
+      assert req.url.host == "my-bucket.s3.amazonaws.com"
+      assert req.url.path == "/path/to/object.json"
+    end
+  end
+
+  @tag :integration
   test "list buckets" do
     req =
       Req.new()
@@ -167,10 +190,11 @@ defmodule ReqS3Test do
       secret_access_key: "bar"
     ]
 
-    assert "https://wojtekmach-test.s3.amazonaws.com/hello world.txt?X-Amz-Algorithm=AWS4-HMAC-SHA256&" <>
+    assert "https://wojtekmach-test.s3.amazonaws.com/hello%20world.txt?X-Amz-Algorithm=AWS4-HMAC-SHA256&" <>
              _ = ReqS3.presign_url(options)
   end
 
+  @tag :integration
   test "presign_url/1 upload" do
     url = ReqS3.presign_url(url: "s3://wojtekmach-test/foo", method: :put)
     body = "hi#{Time.utc_now()}"
@@ -215,6 +239,7 @@ defmodule ReqS3Test do
     end
   end
 
+  @tag :integration
   @tag :tmp_dir
   test "presign_form/1", %{tmp_dir: tmp_dir} do
     bucket = System.fetch_env!("BUCKET_NAME")
