@@ -6,7 +6,7 @@ on:
       - main
 jobs:
   test:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     env:
       MIX_ENV: test
     strategy:
@@ -14,14 +14,14 @@ jobs:
       matrix:
         include:
           - pair:
-              elixir: "1.15"
-              otp: "25.3.2.13"
+              elixir: "1.15.8"
+              otp: "26.2.5.9"
           - pair:
-              elixir: "1.17"
-              otp: "27.0.1"
+              elixir: "1.20.2"
+              otp: "29.0.4"
             lint: lint
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - uses: erlef/setup-beam@main
         with:
@@ -29,7 +29,7 @@ jobs:
           elixir-version: ${{ matrix.pair.elixir }}
           version-type: strict
 
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: deps
           key: mix-deps-${{ hashFiles('**/mix.lock') }}
