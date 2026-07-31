@@ -95,7 +95,7 @@ defmodule ReqS3Test do
 
   @tag :integration
   test "list objects with custom AWS_ENDPOINT_URL_S3" do
-    System.put_env("AWS_ENDPOINT_URL_S3", "https://s3.amazonaws.com")
+    put_env("AWS_ENDPOINT_URL_S3", "https://s3.amazonaws.com")
 
     req =
       Req.new()
@@ -114,11 +114,7 @@ defmodule ReqS3Test do
              }
            } = body
   after
-    if @endpoint_url_s3 do
-      System.put_env("AWS_ENDPOINT_URL_S3", @endpoint_url_s3)
-    else
-      System.delete_env("AWS_ENDPOINT_URL_S3")
-    end
+    put_env("AWS_ENDPOINT_URL_S3", @endpoint_url_s3)
   end
 
   @tag :integration
@@ -168,7 +164,7 @@ defmodule ReqS3Test do
       req = Req.new(plugins: [ReqS3], url: "s3://")
       assert Req.Request.prepare(req).options[:aws_sigv4] == nil
     after
-      System.put_env("AWS_ACCESS_KEY_ID", @access_key_id)
+      put_env("AWS_ACCESS_KEY_ID", @access_key_id)
     end
   end
 
@@ -223,7 +219,7 @@ defmodule ReqS3Test do
   end
 
   test "presign_url/1 custom endpoint url from env" do
-    System.put_env("AWS_ENDPOINT_URL_S3", "https://custom")
+    put_env("AWS_ENDPOINT_URL_S3", "https://custom")
 
     assert "https://custom/bucket/key?X-Amz-Algorithm=AWS4-HMAC-SHA256&" <> _ =
              ReqS3.presign_url(
@@ -232,11 +228,7 @@ defmodule ReqS3Test do
                secret_access_key: ""
              )
   after
-    if @endpoint_url_s3 do
-      System.put_env("AWS_ENDPOINT_URL_S3", @endpoint_url_s3)
-    else
-      System.delete_env("AWS_ENDPOINT_URL_S3")
-    end
+    put_env("AWS_ENDPOINT_URL_S3", @endpoint_url_s3)
   end
 
   @tag :integration
@@ -271,5 +263,13 @@ defmodule ReqS3Test do
           secret_access_key: @secret_access_key
         ]
       )
+  end
+
+  def put_env(name, value) when is_binary(value) do
+    System.put_env(name, value)
+  end
+
+  def put_env(name, nil) do
+    System.delete_env(name)
   end
 end
