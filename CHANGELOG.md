@@ -1,6 +1,6 @@
 # CHANGELOG
 
-## v0.2.5
+## v0.2.5 (2026-07-31)
 
   * Support Req ~> 0.7.
   * Fix support for endpoints with a path prefix.
