@@ -38,15 +38,21 @@ defmodule ReqS3Test do
                Enum.find_index(step_names, &(&1 == :put_aws_sigv4))
     end
 
-    test "converts s3:// URLs when preparing the request" do
+    test "converts s3:// URLs when running the request" do
       req =
-        Req.new(url: "s3://my-bucket/path/to/object.json")
-        |> ReqS3.attach()
-        |> Req.Request.prepare()
+        Req.new(
+          "s3://my-bucket/path/to/object.json",
+          plugins: [ReqS3],
+          plug: fn conn ->
+            assert Plug.Conn.request_url(conn) ==
+                     "https://my-bucket.s3.amazonaws.com/path/to/object.json"
 
-      assert req.url.scheme == "https"
-      assert req.url.host == "my-bucket.s3.amazonaws.com"
-      assert req.url.path == "/path/to/object.json"
+            Plug.Conn.send_resp(conn, 200, "")
+          end
+        )
+
+      resp = Req.request!(req)
+      assert resp.status == 200
     end
   end
 
@@ -136,33 +142,68 @@ defmodule ReqS3Test do
   end
 
   describe "aws_sigv4" do
-    @describetag :integration
-
     test "set from system env" do
-      req = Req.new(plugins: [ReqS3], url: "s3://")
+      put_env("AWS_ACCESS_KEY_ID", "key-from-env")
+      put_env("AWS_SECRET_ACCESS_KEY", "secret-from-env")
 
-      assert Map.new(Req.Request.prepare(req).options.aws_sigv4) == %{
-               service: :s3,
-               access_key_id: @access_key_id,
-               secret_access_key: @secret_access_key
-             }
+      req =
+        Req.new(
+          "s3://",
+          plugins: [ReqS3],
+          plug: fn conn ->
+            assert ["AWS4-HMAC-SHA256 Credential=key-from-env/" <> _] =
+                     Plug.Conn.get_req_header(conn, "authorization")
+
+            Plug.Conn.send_resp(conn, 200, "")
+          end
+        )
+
+      resp = Req.request!(req)
+      assert resp.status == 200
+    after
+      put_env("AWS_ACCESS_KEY_ID", @access_key_id)
+      put_env("AWS_SECRET_ACCESS_KEY", @secret_access_key)
     end
 
     test "can be overridden" do
-      req = Req.new(plugins: [ReqS3], url: "s3://", aws_sigv4: [access_key_id: "foo"])
+      put_env("AWS_ACCESS_KEY_ID", "key-from-env")
+      put_env("AWS_SECRET_ACCESS_KEY", "secret-from-env")
 
-      assert Map.new(Req.Request.prepare(req).options.aws_sigv4) == %{
-               service: :s3,
-               access_key_id: "foo",
-               secret_access_key: @secret_access_key
-             }
+      req =
+        Req.new(
+          "s3://",
+          plugins: [ReqS3],
+          aws_sigv4: [access_key_id: "foo"],
+          plug: fn conn ->
+            assert ["AWS4-HMAC-SHA256 Credential=foo/" <> _] =
+                     Plug.Conn.get_req_header(conn, "authorization")
+
+            Plug.Conn.send_resp(conn, 200, "")
+          end
+        )
+
+      resp = Req.request!(req)
+      assert resp.status == 200
+    after
+      put_env("AWS_ACCESS_KEY_ID", @access_key_id)
+      put_env("AWS_SECRET_ACCESS_KEY", @secret_access_key)
     end
 
     test "is not set when option nor env is not set " do
       System.delete_env("AWS_ACCESS_KEY_ID")
 
-      req = Req.new(plugins: [ReqS3], url: "s3://")
-      assert Req.Request.prepare(req).options[:aws_sigv4] == nil
+      req =
+        Req.new(
+          "s3://",
+          plugins: [ReqS3],
+          plug: fn conn ->
+            assert Plug.Conn.get_req_header(conn, "authorization") == []
+            Plug.Conn.send_resp(conn, 200, "")
+          end
+        )
+
+      resp = Req.request!(req)
+      assert resp.status == 200
     after
       put_env("AWS_ACCESS_KEY_ID", @access_key_id)
     end
